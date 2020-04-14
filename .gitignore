@@ -1,0 +1,13 @@
+.gradle/
+build/
+
+a
+a.ll
+a.o
+a.s
+
+.idea/
+
+.kotlintest/
+
+main.som
