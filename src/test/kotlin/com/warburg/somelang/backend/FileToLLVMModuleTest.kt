@@ -12,48 +12,48 @@ class FileToLLVMModuleTest : FunSpec({
             val node = file {
                 nodes {
                     +functionDeclaration {
-                        name = Identifier("main")
-                        body = Return(IntLiteral(123))
+                        name = IdentifierNode("main")
+                        body = ReturnNode(IntLiteralNode(123))
                     }
                 }
             }
-            val result = convert(listOf(node))
+            val result = convertToLLVM(listOf(node))
             println(result)
         }
         test("return int from main with variable") {
             val node = file {
                 nodes {
                     +functionDeclaration {
-                        name = Identifier("main")
+                        name = IdentifierNode("main")
                         body = block {
                             statements {
-                                +LocalVarDeclaration(Identifier("a"), IntLiteral(123))
-                                +Return(Identifier("a"))
+                                +LocalVarDeclarationNode(IdentifierNode("a"), IntLiteralNode(123))
+                                +ReturnNode(IdentifierNode("a"))
                             }
                         }
                     }
                 }
             }
-            val result = convert(listOf(node))
+            val result = convertToLLVM(listOf(node))
             println(result)
         }
         test("return int from main with math") {
             val node = file {
                 nodes {
                     +functionDeclaration {
-                        name = Identifier("main")
+                        name = IdentifierNode("main")
                         body = block {
                             statements {
-                                +LocalVarDeclaration(Identifier("a"), IntLiteral(123))
-                                +LocalVarDeclaration(Identifier("b"), IntLiteral(456))
-                                +LocalVarDeclaration(Identifier("c"), IntLiteral(789))
-                                +Return(BinaryOperation(BinaryOperator.ADD, Identifier("a"), BinaryOperation(BinaryOperator.ADD, Identifier("b"), Identifier("c"))))
+                                +LocalVarDeclarationNode(IdentifierNode("a"), IntLiteralNode(123))
+                                +LocalVarDeclarationNode(IdentifierNode("b"), IntLiteralNode(456))
+                                +LocalVarDeclarationNode(IdentifierNode("c"), IntLiteralNode(789))
+                                +ReturnNode(BinaryOperationNode(BinaryOperator.ADD, IdentifierNode("a"), BinaryOperationNode(BinaryOperator.ADD, IdentifierNode("b"), IdentifierNode("c"))))
                             }
                         }
                     }
                 }
             }
-            val result = convert(listOf(node))
+            val result = convertToLLVM(listOf(node))
             println(result)
         }
     }

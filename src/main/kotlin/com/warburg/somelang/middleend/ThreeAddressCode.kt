@@ -42,33 +42,33 @@ fun Node.asThreeAddressCode(): TacBlock {
 
 private fun translate(node: Node, context: TacContext): ValueReference {
     return when (node) {
-        is Block -> {
+        is BlockNode -> {
             var lastStatementResult: ValueReference? = null
             for (stmt in node.statements) {
                 lastStatementResult = translate(stmt, context)
             }
             lastStatementResult ?: throw UnsupportedOperationException("no defined value for empty blocks")
         }
-        is LocalVarDeclaration -> {
+        is LocalVarDeclarationNode -> {
             val rhsResult = translate(node.rhs, context)
             val variable = Variable("${node.name.id}_${context.nextVar().id}")
             context.putVarName(node.name.id, variable)
             context.add(DefineOp(variable, rhsResult))
             LocalVarReference(variable)
         }
-        is BinaryOperation -> {
+        is BinaryOperationNode -> {
             val resultVar = context.nextVar()
             context.add(BinOp(resultVar, translate(node.lhs, context), node.operator.asTacOp(), translate(node.rhs, context)))
             TempVarReference(resultVar)
         }
-        is Return -> {
+        is ReturnNode -> {
             val result = translate(node.value, context)
             context.add(ReturnOp(result))
             result
         }
-        is IntLiteral -> Immediate(node.value)
-        is Identifier -> LocalVarReference(context.getVarName(node.id))
-        is File, is FunctionDeclaration -> throw UnsupportedOperationException("Can only convert expressions")
+        is IntLiteralNode -> Immediate(node.value)
+        is IdentifierNode -> LocalVarReference(context.getVarName(node.id))
+        else -> throw UnsupportedOperationException("Can only convert expressions")
     }
 }
 

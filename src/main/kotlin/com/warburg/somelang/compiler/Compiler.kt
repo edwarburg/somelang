@@ -1,6 +1,6 @@
 package com.warburg.somelang.compiler
 
-import com.warburg.somelang.backend.convert
+import com.warburg.somelang.backend.convertToLLVM
 import com.warburg.somelang.frontend.parse
 import com.warburg.somelang.runCommand
 import java.nio.file.Path
@@ -22,7 +22,7 @@ class Compiler(
             .toList()
 
         // convert to an LLVM module string
-        val llvmifiedFiles = convert(parsedFiles)
+        val llvmifiedFiles = convertToLLVM(parsedFiles)
         println(llvmifiedFiles)
 
         // write out

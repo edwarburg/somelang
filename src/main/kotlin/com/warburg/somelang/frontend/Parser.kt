@@ -10,7 +10,7 @@ import com.warburg.somelang.ast.*
 /**
  * @author ewarburg
  */
-private val grammar = object : Grammar<File>() {
+private val grammar = object : Grammar<FileNode>() {
     val fun_kw by token("fun")
     val let_kw by token("let")
     val return_kw by token("return")
@@ -24,23 +24,23 @@ private val grammar = object : Grammar<File>() {
     val intLit_tok by token("[1-9][0-9]*")
     val ws by token("\\s+", ignore = true)
 
-    val ident by ident_tok map { Identifier(it.text) }
-    val intLit by intLit_tok map { IntLiteral(it.text.toInt()) }
+    val ident by ident_tok map { IdentifierNode(it.text) }
+    val intLit by intLit_tok map { IntLiteralNode(it.text.toInt()) }
 
-    val let_stmt by -let_kw * ident * -equals * parser { expr } map { (lhs, rhs) -> LocalVarDeclaration(lhs, rhs) }
-    val return_stmt by -return_kw * parser<Node> { expr } map { Return(it) }
+    val let_stmt by -let_kw * ident * -equals * parser { expr } map { (lhs, rhs) -> LocalVarDeclarationNode(lhs, rhs) }
+    val return_stmt by -return_kw * parser<Node> { expr } map { ReturnNode(it) }
     val statement: Parser<Node> by let_stmt or return_stmt
 
-    val block: Parser<Block> by oneOrMore(statement) map { Block(it) }
+    val block: Parser<BlockNode> by oneOrMore(statement) map { BlockNode(it) }
 
     val operator: Parser<BinaryOperator> by plus map { BinaryOperator.ADD }
-    val binaryOp: Parser<BinaryOperation> by operator * parser { expr } * parser { expr } map { (operator, lhs, rhs) -> BinaryOperation(operator, lhs, rhs) }
+    val binaryOp: Parser<BinaryOperationNode> by operator * parser { expr } * parser { expr } map { (operator, lhs, rhs) -> BinaryOperationNode(operator, lhs, rhs) }
 
     val expr: Parser<Node> by intLit or ident or binaryOp or block
 
-    val funcDecl: Parser<FunctionDeclaration> by (-fun_kw * ident * -lParen * -rParen * -lCurly * expr * -rCurly) map { (ident, expr) -> FunctionDeclaration(ident, expr) }
+    val funcDecl: Parser<FunctionDeclarationNode> by (-fun_kw * ident * -lParen * -rParen * -lCurly * expr * -rCurly) map { (ident, expr) -> FunctionDeclarationNode(ident, expr) }
 
-    override val rootParser: Parser<File> = oneOrMore(funcDecl) map { File(it) }
+    override val rootParser: Parser<FileNode> = oneOrMore(funcDecl) map { FileNode(it) }
 }
 
-fun String.parse(): File = grammar.parseToEnd(this)
+fun String.parse(): FileNode = grammar.parseToEnd(this)

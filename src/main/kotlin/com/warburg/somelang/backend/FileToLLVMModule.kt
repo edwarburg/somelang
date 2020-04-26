@@ -1,7 +1,7 @@
 package com.warburg.somelang.backend
 
-import com.warburg.somelang.ast.File
-import com.warburg.somelang.ast.FunctionDeclaration
+import com.warburg.somelang.ast.FileNode
+import com.warburg.somelang.ast.FunctionDeclarationNode
 import com.warburg.somelang.ast.Node
 import com.warburg.somelang.middleend.*
 import me.tomassetti.kllvm.*
@@ -9,7 +9,7 @@ import me.tomassetti.kllvm.*
 
 private typealias SomeLangInt = I32Type
 
-fun convert(files: List<File>): String {
+fun convertToLLVM(files: List<FileNode>): String {
     val builder = ModuleBuilder()
     for (file in files) {
         addContents(file, builder)
@@ -23,17 +23,17 @@ fun convert(files: List<File>): String {
 /**
  * @author ewarburg
  */
-fun addContents(file: File, builder: ModuleBuilder) {
+fun addContents(file: FileNode, builder: ModuleBuilder) {
     builder.addDeclaration(FunctionDeclaration("printf", I32Type, listOf(Pointer(I8Type)), varargs = true))
     for (node in file.nodes) {
-        if (node is FunctionDeclaration) {
+        if (node is FunctionDeclarationNode) {
             addFunction(node, builder)
         }
     }
 }
 
 private fun addFunction(
-    node: FunctionDeclaration,
+    node: FunctionDeclarationNode,
     builder: ModuleBuilder
 ) {
     val function = if (node.name.id == "main") {

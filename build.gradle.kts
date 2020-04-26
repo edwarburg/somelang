@@ -26,6 +26,10 @@ dependencies {
     implementation("com.juanchosaravia.autodsl:annotation:0.0.9")
 
     implementation("me.tomassetti:kllvm:0.1.0")
+    val asmVersion = "8.0.1"
+    implementation("org.ow2.asm:asm:$asmVersion")
+    implementation("org.ow2.asm:asm-commons:$asmVersion")
+    implementation("net.bytebuddy:byte-buddy:1.10.9")
 
     testImplementation("io.kotlintest:kotlintest-runner-junit5:3.3.0")
     testImplementation("io.mockk:mockk:1.9")
