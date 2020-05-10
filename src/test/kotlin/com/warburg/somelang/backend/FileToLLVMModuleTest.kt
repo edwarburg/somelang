@@ -12,7 +12,7 @@ class FileToLLVMModuleTest : FunSpec({
             val node = file {
                 nodes {
                     +functionDeclaration {
-                        name = IdentifierNode("main")
+                        nameNode = id(fqn("main"))
                         body = ReturnNode(IntLiteralNode(123))
                     }
                 }
@@ -24,11 +24,11 @@ class FileToLLVMModuleTest : FunSpec({
             val node = file {
                 nodes {
                     +functionDeclaration {
-                        name = IdentifierNode("main")
+                        nameNode = id(fqn("main"))
                         body = block {
                             statements {
-                                +LocalVarDeclarationNode(IdentifierNode("a"), IntLiteralNode(123))
-                                +ReturnNode(IdentifierNode("a"))
+                                +LocalVarDeclarationNode(id(fqn("a")), IntLiteralNode(123))
+                                +ReturnNode(id(fqn("a")))
                             }
                         }
                     }
@@ -41,13 +41,13 @@ class FileToLLVMModuleTest : FunSpec({
             val node = file {
                 nodes {
                     +functionDeclaration {
-                        name = IdentifierNode("main")
+                        nameNode = id(fqn("main"))
                         body = block {
                             statements {
-                                +LocalVarDeclarationNode(IdentifierNode("a"), IntLiteralNode(123))
-                                +LocalVarDeclarationNode(IdentifierNode("b"), IntLiteralNode(456))
-                                +LocalVarDeclarationNode(IdentifierNode("c"), IntLiteralNode(789))
-                                +ReturnNode(BinaryOperationNode(BinaryOperator.ADD, IdentifierNode("a"), BinaryOperationNode(BinaryOperator.ADD, IdentifierNode("b"), IdentifierNode("c"))))
+                                +LocalVarDeclarationNode(id(fqn("a")), IntLiteralNode(123))
+                                +LocalVarDeclarationNode(id(fqn("b")), IntLiteralNode(456))
+                                +LocalVarDeclarationNode(id(fqn("c")), IntLiteralNode(789))
+                                +ReturnNode(BinaryOperationNode(BinaryOperator.ADD, id(fqn("a")), BinaryOperationNode(BinaryOperator.ADD, readLocal("b"), readLocal("c"))))
                             }
                         }
                     }

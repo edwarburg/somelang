@@ -51,8 +51,8 @@ private fun translate(node: Node, context: TacContext): ValueReference {
         }
         is LocalVarDeclarationNode -> {
             val rhsResult = translate(node.rhs, context)
-            val variable = Variable("${node.name.id}_${context.nextVar().id}")
-            context.putVarName(node.name.id, variable)
+            val variable = Variable("${node.nameNode.name}_${context.nextVar().id}")
+            context.putVarName(node.nameNode.name.text, variable)
             context.add(DefineOp(variable, rhsResult))
             LocalVarReference(variable)
         }
@@ -67,7 +67,7 @@ private fun translate(node: Node, context: TacContext): ValueReference {
             result
         }
         is IntLiteralNode -> Immediate(node.value)
-        is IdentifierNode -> LocalVarReference(context.getVarName(node.id))
+        is IdentifierNode -> LocalVarReference(context.getVarName(node.name.text))
         else -> throw UnsupportedOperationException("Can only convert expressions")
     }
 }

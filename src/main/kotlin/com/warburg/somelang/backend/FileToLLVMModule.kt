@@ -36,10 +36,10 @@ private fun addFunction(
     node: FunctionDeclarationNode,
     builder: ModuleBuilder
 ) {
-    val function = if (node.name.id == "main") {
+    val function = if (node.nameNode.name.text == "main") {
         builder.createMainFunction()
     } else {
-        builder.createFunction(node.name.id, SomeLangInt, listOf())
+        builder.createFunction(node.nameNode.name.text, SomeLangInt, listOf())
     }
 
     addFunctionBody(node.body, function)

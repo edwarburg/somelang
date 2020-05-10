@@ -6,6 +6,7 @@ import com.github.h0tk3y.betterParse.grammar.parseToEnd
 import com.github.h0tk3y.betterParse.grammar.parser
 import com.github.h0tk3y.betterParse.parser.Parser
 import com.warburg.somelang.ast.*
+import com.warburg.somelang.id.UnresolvedName
 
 /**
  * @author ewarburg
@@ -24,7 +25,7 @@ private val grammar = object : Grammar<FileNode>() {
     val intLit_tok by token("[1-9][0-9]*")
     val ws by token("\\s+", ignore = true)
 
-    val ident by ident_tok map { IdentifierNode(it.text) }
+    val ident by ident_tok map { IdentifierNode(UnresolvedName(it.text)) }
     val intLit by intLit_tok map { IntLiteralNode(it.text.toInt()) }
 
     val let_stmt by -let_kw * ident * -equals * parser { expr } map { (lhs, rhs) -> LocalVarDeclarationNode(lhs, rhs) }
@@ -38,6 +39,7 @@ private val grammar = object : Grammar<FileNode>() {
 
     val expr: Parser<Node> by intLit or ident or binaryOp or block
 
+    // TODO actually parse type
     val funcDecl: Parser<FunctionDeclarationNode> by (-fun_kw * ident * -lParen * -rParen * -lCurly * expr * -rCurly) map { (ident, expr) -> FunctionDeclarationNode(ident, expr) }
 
     override val rootParser: Parser<FileNode> = oneOrMore(funcDecl) map { FileNode(it) }

@@ -17,11 +17,20 @@ fun main(args: Array<String>) {
     "time ./a".runCommand()
 }
 
-fun String.runCommand(workingDir: File = File(System.getProperty("user.dir"))) {
-    ProcessBuilder(*split(" ").toTypedArray())
+fun String.runCommand(workingDir: File = File(System.getProperty("user.dir")), stdout: File? = null, stderr: File? = null) = getCommandProcess(workingDir, stdout, stdout).waitFor(60, TimeUnit.MINUTES)
+
+fun String.getCommandProcess(workingDir: File = File(System.getProperty("user.dir")), stdout: File? = null, stderr: File? = null): Process {
+    val builder = ProcessBuilder(*split(" ").toTypedArray())
         .directory(workingDir)
-        .redirectOutput(ProcessBuilder.Redirect.INHERIT)
-        .redirectError(ProcessBuilder.Redirect.INHERIT)
-        .start()
-        .waitFor(60, TimeUnit.MINUTES)
+    if (stdout == null) {
+        builder.redirectOutput(ProcessBuilder.Redirect.INHERIT)
+    } else {
+        builder.redirectOutput(stdout)
+    }
+    if (stderr == null) {
+        builder.redirectError(ProcessBuilder.Redirect.INHERIT)
+    } else {
+        builder.redirectError(stderr)
+    }
+    return builder.start()
 }
