@@ -1,6 +1,6 @@
 package com.warburg.somelang.compiler
 
-import com.warburg.somelang.backend.convertToLLVM
+import com.warburg.somelang.backend.llvm.convertToLLVM
 import com.warburg.somelang.frontend.parse
 import com.warburg.somelang.runCommand
 import java.nio.file.Path

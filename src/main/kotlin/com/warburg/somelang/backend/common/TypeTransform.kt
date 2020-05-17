@@ -1,7 +1,8 @@
-package com.warburg.somelang.backend
+package com.warburg.somelang.backend.common
 
 import com.warburg.somelang.ast.TypeExpressionNode
 import com.warburg.somelang.ast.TypeNameNode
+import com.warburg.somelang.backend.jvm.toObjectDescriptor
 import com.warburg.somelang.middleend.*
 import org.objectweb.asm.Type
 

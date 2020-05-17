@@ -1,6 +1,7 @@
-package com.warburg.somelang.backend
+package com.warburg.somelang.backend.jvm
 
 import com.warburg.somelang.ast.*
+import com.warburg.somelang.backend.common.CompilationInput
 import com.warburg.somelang.middleend.*
 import com.warburg.somelang.runCommand
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -21,7 +22,6 @@ val bazFqn = fooFqn + "Baz"
  * @author ewarburg
  */
 class FileToJvmBytecodeTest {
-
     @Nested
     inner class Functions {
         @Test

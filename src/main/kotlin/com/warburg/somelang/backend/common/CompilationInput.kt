@@ -1,4 +1,4 @@
-package com.warburg.somelang.backend
+package com.warburg.somelang.backend.common
 
 import com.warburg.somelang.ast.FileNode
 import com.warburg.somelang.middleend.TypeContext

@@ -1,6 +1,7 @@
-package com.warburg.somelang.backend
+package com.warburg.somelang.backend.llvm
 
 import com.warburg.somelang.ast.*
+import com.warburg.somelang.backend.llvm.convertToLLVM
 import org.junit.jupiter.api.Test
 
 /**

@@ -1,4 +1,4 @@
-package com.warburg.somelang.backend
+package com.warburg.somelang.backend.llvm
 
 import com.warburg.somelang.ast.FileNode
 import com.warburg.somelang.ast.FunctionDeclarationNode
@@ -77,7 +77,9 @@ private fun ValueReference.asLLVMValue(builder: BlockBuilder): Value  = when (th
     is Immediate<*> -> IntConst(this.value as Int, SomeLangInt)
     is TempVarReference -> LocalValueRef(this.variable.id, SomeLangInt)
     is LocalVarReference -> {
-        val tempVar = TempValue("llvm${builder.functionBuilder.tmpIndex()}", Load(LocalValueRef(this.variable.id, Pointer(SomeLangInt))))
+        val tempVar = TempValue("llvm${builder.functionBuilder.tmpIndex()}", Load(LocalValueRef(this.variable.id, Pointer(
+            SomeLangInt
+        ))))
         builder.addInstruction(tempVar)
         LocalValueRef(tempVar.name, SomeLangInt)
     }
