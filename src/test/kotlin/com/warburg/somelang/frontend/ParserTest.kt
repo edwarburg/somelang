@@ -1,16 +1,15 @@
 package com.warburg.somelang.frontend
 
-import io.kotlintest.specs.FunSpec
+import org.junit.jupiter.api.Test
 
 /**
  * @author ewarburg
  */
-class ParserTest : FunSpec({
-    context("func decl") {
-        test("can parse func decl") {
-            val input = "fun hello() { 123 }"
-            val result = input.parse()
-            println(result)
-        }
+class ParserTest {
+    @Test
+    fun `can parse func decl`() {
+        val input = "fun hello() { 123 }"
+        val result = input.parse()
+        println(result)
     }
-})
+}

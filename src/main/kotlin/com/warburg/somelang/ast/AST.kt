@@ -78,4 +78,15 @@ data class ReadFieldValueNode(val receiver: Node, val field: IdentifierNode) : N
 sealed class ArgumentNode : Node()
 data class PositionalArgumentNode(val value: Node) : ArgumentNode()
 
+@AutoDsl(dslName = "dataDecl")
+data class DataDeclarationNode(val typeConstructorDeclaration: TypeConstructorDeclarationNode, val valueConstructorDeclarations: List<ValueConstructorDeclarationNode>) : Node()
+
+@AutoDsl(dslName = "typeConstDecl")
+data class TypeConstructorDeclarationNode(val nameNode: IdentifierNode) : Node()
+@AutoDsl(dslName = "valueConstDecl")
+data class ValueConstructorDeclarationNode(val nameNode: IdentifierNode) : Node()
+
+@AutoDsl(dslName = "valueConstInvoke")
+data class ValueConstructorInvocationNode(val target: IdentifierNode) : Node()
+
 object NoOpNode : Node()

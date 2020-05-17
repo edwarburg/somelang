@@ -9,7 +9,7 @@ class TypeContext {
     private val types: MutableMap<FullyQualifiedName, SomelangType> = mutableMapOf()
     private val main: SomelangType = FunctionType(emptyList(), VoidType)
 
-    fun lookupType(name: FullyQualifiedName): SomelangType? = if (name.text == "main") this.main else this.types[name]
+    fun lookupType(name: FullyQualifiedName): SomelangType? = if (name.finalSegment == "main") this.main else this.types[name]
     fun putType(name: FullyQualifiedName, type: SomelangType) {
         this.types[name] = type
     }

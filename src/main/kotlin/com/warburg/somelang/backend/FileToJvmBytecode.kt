@@ -4,8 +4,9 @@ import com.warburg.somelang.ast.*
 import com.warburg.somelang.id.FullyQualifiedName
 import com.warburg.somelang.id.Name
 import com.warburg.somelang.id.UnresolvedName
-import com.warburg.somelang.id.resolve
 import com.warburg.somelang.middleend.FunctionType
+import com.warburg.somelang.middleend.getDeclarationFqn
+import com.warburg.somelang.middleend.getReferentFqn
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
@@ -22,6 +23,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KMutableProperty0
 import kotlin.reflect.KProperty
 import kotlin.reflect.jvm.isAccessible
+import kotlin.reflect.jvm.javaMethod
 
 /**
  * @author ewarburg
@@ -35,66 +37,225 @@ fun convertToJvmBytecode(compilationInput: CompilationInput) {
     // TODO main with runtime parameters?
     // TODO fix hard coding of class names and types etc
 
+    val fileWithMain = findMain(compilationInput)
+
     val manifest = Manifest().apply {
         mainAttributes.putValue("Manifest-Version", "1.0")
-        mainAttributes.putValue("Main-class", "com/warburg/Class0")
+        if (fileWithMain != null) {
+            mainAttributes.putValue("Main-class", fileWithMain.getDeclarationFqn().toJavaInternalName())
+        }
     }
 
     context.withCurrentOutputJarFile(jarFile) {
         JarOutputStream(FileOutputStream(jarFile), manifest).use { jos ->
             compilationInput.filesToCompile
-                .forEachIndexed { i, fileNode ->
+                .flatMap { fileNode ->
                     context.withCurrentFileNode(fileNode) {
-                        val classBytes = generateClassForFile(i, context)
-                        jos.putNextEntry(ZipEntry("com/warburg/Class0.class"))
-                        jos.write(classBytes)
-                        jos.closeEntry()
+                        generateClassesForFile(context)
                     }
+                }.forEach {
+                    jos.putNextEntry(it.zipEntry)
+                    jos.write(it.bytes)
+                    jos.closeEntry()
                 }
         }
     }
 }
 
-private fun generateClassForFile(i: Int, context: CompilationContext): ByteArray {
-    context.withClassWriter(ClassWriter(ClassWriter.COMPUTE_MAXS + ClassWriter.COMPUTE_FRAMES)) {
-        context.cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, "com/warburg/Class$i", null, "java/lang/Object", null)
-        for (node in context.currentFileNode.nodes) {
-            when (node) {
-                is FunctionDeclarationNode -> {
-                    context.withCurrentDeclNode(node) {
-                        generateMethod(context) {
-                            generateNode(node.body, context)
-                        }
-                    }
-                }
-                else -> {
-                    throw UnsupportedOperationException("Don't know how to compile node to JVM from top level: $node")
+const val MAIN_FUNC_NAME: String = "somelangMain"
+
+fun findMain(compilationInput: CompilationInput): FileNode? {
+    return compilationInput.filesToCompile.filter { fileNode ->
+        fileNode.nodes.any { topLevelNode -> topLevelNode is FunctionDeclarationNode && topLevelNode.nameNode.name.text == MAIN_FUNC_NAME }
+    }.also { nodes ->
+        if (nodes.size > 1) {
+            throw UnsupportedOperationException("More than one main")
+        }
+    }.firstOrNull()
+}
+
+class OutputClass(val bytes: ByteArray, val zipEntry: ZipEntry)
+
+private const val CLASSWRITER_OPTIONS = ClassWriter.COMPUTE_MAXS + ClassWriter.COMPUTE_FRAMES
+
+private fun generateClassesForFile(context: CompilationContext): Collection<OutputClass> {
+    val nodeFqnToClassWriter = mutableMapOf<FullyQualifiedName, ClassWriter>()
+    val classWriterToOwnerFqn = mutableMapOf<ClassWriter, FullyQualifiedName>()
+
+    val dataDecls = mutableListOf<DataDeclarationNode>()
+    val funcDecls = mutableListOf<FunctionDeclarationNode>()
+
+    val fileFqn = context.currentFileNode.getDeclarationFqn()
+    val fileCw = makeAndInitClassWriter(fileFqn.toJavaInternalName())
+    nodeFqnToClassWriter[fileFqn] = fileCw
+    classWriterToOwnerFqn[fileCw] = fileFqn
+
+    // map nodes to the class writers they go in
+
+    for (node in context.currentFileNode.nodes) {
+        when (node) {
+            is DataDeclarationNode -> {
+                // new class for data decl
+                dataDecls.add(node)
+                val typeConstFqn = node.typeConstructorDeclaration.getDeclarationFqn()
+                val typeConstCw = ClassWriter(CLASSWRITER_OPTIONS)
+                nodeFqnToClassWriter[typeConstFqn] = typeConstCw
+                classWriterToOwnerFqn[typeConstCw] = typeConstFqn
+                for (valueConstDecl in node.valueConstructorDeclarations) {
+                    val valueConstFqn = valueConstDecl.getDeclarationFqn()
+                    val valConstCw = ClassWriter(CLASSWRITER_OPTIONS)
+                    nodeFqnToClassWriter[valueConstFqn] = valConstCw
+                    classWriterToOwnerFqn[valConstCw] = valueConstFqn
                 }
             }
+            is FunctionDeclarationNode -> {
+                // add decl to class for file
+                funcDecls.add(node)
+                // TODO add funcs to class of associated data?
+                nodeFqnToClassWriter[node.getDeclarationFqn()] = fileCw
+            }
+            else -> throw UnsupportedOperationException("Don't know how to compile $node")
         }
-        generateMain(context)
-        return context.cw.toByteArray()
+    }
+
+    // for each node, generate appropriate bytecode in the right class writer
+
+    for (dataDecl in dataDecls) {
+        val cw = nodeFqnToClassWriter[dataDecl.getDeclarationFqn()]!!
+        context.withClassWriter(cw) {
+            context.withCurrentDataDeclNode(dataDecl) {
+                generateDataDecl(nodeFqnToClassWriter, context)
+            }
+        }
+    }
+
+    for (funcDecl in funcDecls) {
+        val cw = nodeFqnToClassWriter[funcDecl.getDeclarationFqn()]!!
+        context.withClassWriter(cw) {
+            context.withCurrentFuncDeclNode(funcDecl) {
+                generateFuncDecl(context) {
+                    generateNode(funcDecl.body, context)
+                }
+            }
+            if (funcDecl.nameNode.name.text == MAIN_FUNC_NAME) {
+                generateMain(funcDecl, context)
+            }
+        }
+    }
+
+    // build the class writers into .class byte arrays paired with zip entries they'll go to
+    return classWriterToOwnerFqn.map { (cw, ownerFqn) ->
+        cw.visitEnd()
+        OutputClass(cw.toByteArray(), ZipEntry(ownerFqn.toJavaInternalName() + ".class"))
     }
 }
 
-private fun generateMain(context: CompilationContext) {
+private fun makeAndInitClassWriter(javaClassName: String): ClassWriter {
+    val cw = ClassWriter(CLASSWRITER_OPTIONS)
+    cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, javaClassName, null, "java/lang/Object", null)
+    return cw
+}
+
+fun FullyQualifiedName.toJavaInternalName(): String = if (this.isInnerClass) {
+    "${this.qualifyingSegment.toJavaInternalName()}$${this.finalSegment}"
+} else {
+    this.text.replace(".", "/")
+}
+
+private val FullyQualifiedName.isInnerClass: Boolean
+    get() = this.finalSegment.firstOrNull()?.isUpperCase() == true && this.qualifyingSegment.finalSegment.firstOrNull()?.isUpperCase() == true
+
+private fun generateDataDecl(
+    nodeFqnToClassWriter: Map<FullyQualifiedName, ClassWriter>,
+    context: CompilationContext
+) {
+    val outerCw = context.cw
+    val dd = context.currentDataDeclNode
+    val outerFqn = dd.typeConstructorDeclaration.getDeclarationFqn()
+    val outerInternalName = outerFqn.toJavaInternalName()
+
+    // make outer class with data type's name
+    // TODO Access modifiers, generic parms
+    outerCw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC + Opcodes.ACC_ABSTRACT, outerInternalName, null, "java/lang/Object", null)
+    generateConstructor(Opcodes.ACC_PROTECTED, Type.getType(Object::class.java), Method.getMethod(Object::class.java.getConstructor()), emptyList(), context)
+
+    for (valueConstDecl in dd.valueConstructorDeclarations) {
+        val innerSimpleName = valueConstDecl.nameNode.name.text
+        val innerInternalName = valueConstDecl.getDeclarationFqn().toJavaInternalName()
+        val innerAcc = Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC + Opcodes.ACC_FINAL
+        outerCw.visitInnerClass(innerInternalName, outerInternalName, innerSimpleName, innerAcc)
+
+        val innerCw = nodeFqnToClassWriter.getValue(valueConstDecl.getDeclarationFqn())
+        context.withClassWriter(innerCw) {
+            innerCw.visit(Opcodes.V1_8, innerAcc, innerInternalName, null, outerInternalName, null)
+            generateFields(valueConstDecl, context)
+            generateConstructor(Opcodes.ACC_PUBLIC, Type.getType(outerFqn.toObjectDescriptor().descriptor), Method.getMethod("void <init>()"), emptyList(), context)
+            generateStandardDataMethods(valueConstDecl, innerInternalName, innerSimpleName, context)
+            innerCw.visitEnd()
+        }
+    }
+    outerCw.visitEnd()
+}
+
+private fun generateFields(valueConstDecl: ValueConstructorDeclarationNode, context: CompilationContext) {
+
+}
+
+private fun generateConstructor(access: Int, superClassType: Type, superConstructorMethod: Method, parameters: List<Any>, context: CompilationContext) {
+    // TODO parameters in method
+    val method = Method.getMethod("void <init>()")
+    // TODO type parameters
+    val mv = GeneratorAdapter(access, method, null, null, context.cw)
+    context.withMethodVisitor(mv) {
+        mv.loadThis()
+        mv.invokeConstructor(superClassType, superConstructorMethod)
+        // TODO assignments from parameters to fields
+    }
+    mv.returnValue()
+    mv.finish()
+}
+
+private fun generateStandardDataMethods(
+    valueConstDecl: ValueConstructorDeclarationNode,
+    internalName: String,
+    simpleName: String,
+    context: CompilationContext
+) {
+    generateToString(simpleName, valueConstDecl, context)
+    // TODO generate hashCode/equals
+}
+
+private fun generateToString(simpleName: String, valueConstDecl: ValueConstructorDeclarationNode, context: CompilationContext) {
+    val mv = GeneratorAdapter(Opcodes.ACC_PUBLIC + Opcodes.ACC_FINAL, Method.getMethod(Object::toString.javaMethod!!), null, null, context.cw)
+    // TODO fields
+    mv.visitLdcInsn(simpleName)
+    mv.returnValue()
+    mv.finish()
+}
+
+fun GeneratorAdapter.finish() {
+    visitMaxs(0, 0)
+    endMethod()
+}
+
+private fun generateMain(somelangMain: FunctionDeclarationNode, context: CompilationContext) {
     val mainDecl = functionDeclaration {
         nameNode = id(fqn("main"))
         parameters = emptyList()
         returnType = TypeNameNode(id("void"))
         body = NoOpNode
-    }
-    context.withCurrentDeclNode(mainDecl) {
-        generateMethod(context) {
+    }.withDeclFqn(context.currentFileNode.getDeclarationFqn() + "main")
+    context.withCurrentFuncDeclNode(mainDecl) {
+        generateFuncDecl(context) {
             /*
               int result = somelangMain()
               System.out.println(Integer.toString(result))
              */
 
             val mv = context.mv
-            val somelangMainMethod = context.getMethod(context.input.idResolver.resolveId(UnresolvedName("somelangMain"))!!)!!
+            val somelangMainMethod = context.getMethod(somelangMain.getDeclarationFqn())!!
             val result = mv.newLocal(somelangMainMethod.returnType)
-            mv.invokeStatic(context.getType(Descriptor("Lcom/warburg/Class0;")), somelangMainMethod)
+            mv.invokeStatic(context.getType(Descriptor("L${context.currentFileNode.getDeclarationFqn().toJavaInternalName()};")), somelangMainMethod)
             mv.storeLocal(result)
             mv.getStatic(context.getType(System::class.java), "out", context.getType(PrintStream::class.java))
             mv.loadLocal(result)
@@ -104,31 +265,29 @@ private fun generateMain(context: CompilationContext) {
                     Method("toString", context.getType(String::class.java), arrayOf(Type.INT_TYPE))
                 )
             }
-            mv.invokeVirtual(context.getType(PrintStream::class.java), Method("println", Type.VOID_TYPE, arrayOf(context.getType(String::class.java))))
+            mv.invokeVirtual(context.getType(PrintStream::class.java), Method("println", Type.VOID_TYPE, arrayOf(context.getType(Object::class.java))))
             // TODO is there a GeneratorAdaptor method for this?
             mv.returnValue()
         }
     }
 }
 
-private fun generateMethod(context: CompilationContext, bodyBuilder: () -> Unit) {
+private fun generateFuncDecl(context: CompilationContext, bodyBuilder: () -> Unit) {
     val cw = context.cw
-    val decl = context.currentDeclNode
-    val methodFqn = decl.nameNode.name.resolve(context.input.idResolver) ?: throw IllegalArgumentException("Can't resolve name ${decl.nameNode.name}")
+    val decl = context.currentFuncDeclNode
+    val methodFqn = decl.getDeclarationFqn()
     val method = context.getMethod(methodFqn) ?: throw IllegalArgumentException("no method for ${decl.nameNode.name}")
     context.withMethodVisitor(GeneratorAdapter(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, method, null, null, cw)) {
         val mv = context.mv
         context.symbolTable.withOpaqueFrame {
             try {
-                val type = context.input.typeContext.lookupType(methodFqn) as? FunctionType ?: throw IllegalArgumentException("no type for decl ${decl.nameNode.name}")
+                val type = context.input.typeContext.lookupType(methodFqn) as? FunctionType ?: throw IllegalArgumentException("no type for decl ${decl.getDeclarationFqn()}")
                 type.argumentTypes.forEachIndexed { i, arg ->
                     context.symbolTable.put(UnresolvedName(arg.name!!), LocalVarInfo(arg.name, i, arg.type.toASMType()))
                 }
                 bodyBuilder()
             } finally {
-                // TODO compute a real max...
-                mv.visitMaxs(1000, 1000)
-                mv.endMethod()
+                mv.finish()
             }
         }
     }
@@ -182,14 +341,15 @@ private fun generateNode(node: Node, context: CompilationContext) {
         }
         is LocalVarDeclarationNode -> {
             // TODO this type resolution should already be done at type analysis time
-            val typeOfLocal = node.type!!.toSomelangTime(context.input.idResolver).toASMType()
+            val typeOfLocal = node.type!!.toSomelangType().toASMType()
             val index = mv.newLocal(typeOfLocal)
             context.symbolTable.put(node.nameNode.name.asUnresolved(), LocalVarInfo(node.nameNode.name.text, index, typeOfLocal))
             generateNode(node.rhs, context)
             mv.storeLocal(index)
         }
         is InvokeNode -> {
-            val targetDecl = context.getMethod(node.target.name.resolve(context.input.idResolver)!!)!!
+            val referentFqn = node.getReferentFqn()
+            val targetDecl = context.getMethod(referentFqn)!!
             for (argNode in node.arguments.asReversed()) {
                 when (argNode) {
                     is PositionalArgumentNode -> {
@@ -197,7 +357,16 @@ private fun generateNode(node: Node, context: CompilationContext) {
                     }
                 }
             }
-            context.mv.invokeStatic(context.getOwner(node.target.name.text), targetDecl)
+            context.mv.invokeStatic(context.getOwner(referentFqn), targetDecl)
+        }
+        is ValueConstructorInvocationNode -> {
+            val referentFqn = node.getReferentFqn()
+            val mv = context.mv
+            val targetType = Type.getType(referentFqn.toObjectDescriptor().descriptor)
+            mv.newInstance(targetType)
+            mv.dup()
+            // TODO parameters
+            mv.invokeConstructor(targetType, Method.getMethod("void <init>()"))
         }
         else -> throw UnsupportedOperationException("Don't know how to compile $node")
     }
@@ -231,12 +400,13 @@ class NullableProperty<A> {
  * Newtype for JVM type descriptors, eg, `Ljava.lang.String;`
  */
 inline class Descriptor(val descriptor: String)
-fun FullyQualifiedName.asObjectDescriptor(): Descriptor = Descriptor("L${this.text.replace(".", "/")};")
+fun FullyQualifiedName.toObjectDescriptor(): Descriptor = Descriptor("L${this.toJavaInternalName()};")
 
 private class CompilationContext(val input: CompilationInput) {
     var currentOutputJarFile: File by nullable()
     var currentFileNode: FileNode by nullable()
-    var currentDeclNode: FunctionDeclarationNode by nullable()
+    var currentDataDeclNode: DataDeclarationNode by nullable()
+    var currentFuncDeclNode: FunctionDeclarationNode by nullable()
     var currFirstArg: Int by nullable()
     var currFirstLocal: Int by nullable()
     var cw: ClassWriter by nullable()
@@ -271,9 +441,10 @@ private class CompilationContext(val input: CompilationInput) {
 
     inline fun <A> withCurrentOutputJarFile(newValue: File, action: () -> A): A = withField(this::currentOutputJarFile, newValue, action)
     inline fun <A> withCurrentFileNode(newValue: FileNode, action: () -> A): A = withField(this::currentFileNode, newValue, action)
-    inline fun <A> withCurrentDeclNode(newValue: FunctionDeclarationNode, action: () -> A): A = withField(this::currentDeclNode, newValue) {
+    inline fun <A> withCurrentDataDeclNode(newValue: DataDeclarationNode, action: () -> A): A = withField(this::currentDataDeclNode, newValue, action)
+    inline fun <A> withCurrentFuncDeclNode(newValue: FunctionDeclarationNode, action: () -> A): A = withField(this::currentFuncDeclNode, newValue) {
         withField(this::currFirstArg, 0) {
-            withField(this::currFirstLocal, this.currentDeclNode.parameters.size + this.currFirstArg, action)
+            withField(this::currFirstLocal, this.currentFuncDeclNode.parameters.size + this.currFirstArg, action)
         }
     }
     inline fun <A> withClassWriter(newValue: ClassWriter, action: () -> A): A = withField(this::cw, newValue, action)
@@ -282,7 +453,7 @@ private class CompilationContext(val input: CompilationInput) {
     fun getType(clazz: KClass<*>): Type = getType(clazz.java)
     fun getType(clazz: Class<*>): Type = this.typeByClassCache.computeIfAbsent(clazz) { Type.getType(it) }
     fun getType(descriptor: Descriptor): Type = this.typeByDescriptorCache.computeIfAbsent(descriptor) { Type.getType(it.descriptor) }
-    fun getMethod(target: FullyQualifiedName): Method? = if (target.text == "main") {
+    fun getMethod(target: FullyQualifiedName): Method? = if (target.finalSegment == "main") {
         Method.getMethod("void main(String[])")
     } else {
         this.methodsForFuncs[target]?.let { return it }
@@ -294,11 +465,11 @@ private class CompilationContext(val input: CompilationInput) {
         this.methodsForFuncs[target] = method
         method
     }
-    fun getOwner(id: String): Type? = Type.getType("Lcom/warburg/Class0;")
+    fun getOwner(fqn: FullyQualifiedName): Type? = getType(fqn.qualifyingSegment.toObjectDescriptor())
 }
 
 private fun FunctionType.asMethod(name: FullyQualifiedName): Method =
-    Method(name.text, this.returnType.toASMType(), this.argumentTypes.map { it.type.toASMType() }.toTypedArray())
+    Method(name.finalSegment, this.returnType.toASMType(), this.argumentTypes.map { it.type.toASMType() }.toTypedArray())
 
 data class LocalVarInfo(val name: String, val jvmLocalIdx: Int, val type: Type)
 

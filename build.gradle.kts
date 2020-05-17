@@ -31,7 +31,9 @@ dependencies {
     implementation("org.ow2.asm:asm-commons:$asmVersion")
     implementation("net.bytebuddy:byte-buddy:1.10.9")
 
-    testImplementation("io.kotlintest:kotlintest-runner-junit5:3.3.0")
+    val junitVersion = "5.3.1"
+    testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
     testImplementation("io.mockk:mockk:1.9")
 }
 

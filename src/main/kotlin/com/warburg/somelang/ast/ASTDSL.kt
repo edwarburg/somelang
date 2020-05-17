@@ -1,8 +1,14 @@
 package com.warburg.somelang.ast
 
+import com.warburg.somelang.attributable.AttrDef
+import com.warburg.somelang.attributable.AttrVal
+import com.warburg.somelang.attributable.Attributable
+import com.warburg.somelang.attributable.SimpleAttrVal
 import com.warburg.somelang.id.FullyQualifiedName
 import com.warburg.somelang.id.Name
 import com.warburg.somelang.id.UnresolvedName
+import com.warburg.somelang.middleend.DeclarationFqnAttrNode
+import com.warburg.somelang.middleend.ReferentFqnAttrDef
 
 fun id(name: Name): IdentifierNode = IdentifierNode(name)
 fun id(name: String): IdentifierNode = id(UnresolvedName(name))
@@ -26,3 +32,8 @@ val noop: NoOpNode = NoOpNode
 
 fun funcType(arguments: List<TypeExpressionNode>, returnType: TypeExpressionNode): FunctionTypeExpressionNode = FunctionTypeExpressionNode(arguments, returnType)
 fun args(vararg types: TypeExpressionNode): List<TypeExpressionNode> = types.toList()
+
+fun <K : Attributable, A> K.withAttribute(value: AttrVal<A>): K = apply { putAttributeValue(value) }
+fun <K : Attributable, A> K.withAttribute(def: AttrDef<A>, value: A): K = withAttribute(SimpleAttrVal(def, value))
+fun <K : Attributable> K.withDeclFqn(fqn: FullyQualifiedName): K = withAttribute(DeclarationFqnAttrNode, fqn)
+fun <K : Attributable> K.withReferentFqn(fqn: FullyQualifiedName): K = withAttribute(ReferentFqnAttrDef, fqn)

@@ -3,18 +3,29 @@ package com.warburg.somelang.backend
 import com.warburg.somelang.ast.*
 import com.warburg.somelang.middleend.*
 import com.warburg.somelang.runCommand
-import io.kotlintest.fail
-import io.kotlintest.shouldBe
-import io.kotlintest.specs.FunSpec
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.fail
 import java.io.File
-import java.nio.file.Path
+import java.nio.file.Files
+import com.warburg.somelang.ast.typeConstDecl as typeConst
 
+val theFileFqn = fqn("com.somelang.TheFile")
+val somelangMainFqn = fqn("${theFileFqn.text}.somelangMain")
+val targetFuncFqn = fqn("${theFileFqn.text}.targetFunc")
+val fooFqn = theFileFqn.qualifyingSegment + "Foo"
+val barFqn = fooFqn + "Bar"
+val bazFqn = fooFqn + "Baz"
 /**
  * @author ewarburg
  */
-class FileToJvmBytecodeTest : FunSpec({
-    context("functions") {
-        test("return int from main") {
+class FileToJvmBytecodeTest {
+
+    @Nested
+    inner class Functions {
+        @Test
+        fun `return int from main`() {
             val node = file {
                 nodes {
                     +functionDeclaration {
@@ -22,16 +33,16 @@ class FileToJvmBytecodeTest : FunSpec({
                         parameters = emptyList()
                         returnType = TypeNameNode(id("Int"))
                         body = ret(lit(123))
-                    }
+                    }.withDeclFqn(somelangMainFqn)
                 }
-            }
-            val idResolver = MapIdResolver()
-            idResolver.resolveIdTo(unresolved("somelangMain"), fqn("somelangMain"))
+            }.withDeclFqn(theFileFqn)
             val tc = TypeContext()
-            tc.putType(fqn("somelangMain"), FunctionType(listOf(), IntType))
-            convertToJvmBytecodeAndRun("123", node, tc, idResolver)
+            tc.putType(somelangMainFqn, FunctionType(listOf(), IntType))
+            convertToJvmBytecodeAndRun("123", tc, node)
         }
-        test("return int from main with variable") {
+
+        @Test
+        fun `return int from main with variable`() {
             val node = file {
                 nodes {
                     +functionDeclaration {
@@ -48,16 +59,16 @@ class FileToJvmBytecodeTest : FunSpec({
                                 +ret(readLocal("a"))
                             }
                         }
-                    }
+                    }.withDeclFqn(somelangMainFqn)
                 }
-            }
-            val idResolver = MapIdResolver()
-            idResolver.resolveIdTo(unresolved("somelangMain"), fqn("somelangMain"))
+            }.withDeclFqn(theFileFqn)
             val tc = TypeContext()
-            tc.putType(fqn("somelangMain"), FunctionType(listOf(), IntType))
-            convertToJvmBytecodeAndRun("123", node, tc, idResolver)
+            tc.putType(somelangMainFqn, FunctionType(listOf(), IntType))
+            convertToJvmBytecodeAndRun("123", tc, node)
         }
-        test("return int from main with math") {
+
+        @Test
+        fun `return int from main with math`() {
             val node = file {
                 nodes {
                     +functionDeclaration {
@@ -82,7 +93,8 @@ class FileToJvmBytecodeTest : FunSpec({
                                     type = TypeNameNode(id("Int"))
                                 }
                                 +ret(
-                                    add(readLocal("a"),
+                                    add(
+                                        readLocal("a"),
                                         add(
                                             readLocal("b"),
                                             readLocal("c")
@@ -91,16 +103,16 @@ class FileToJvmBytecodeTest : FunSpec({
                                 )
                             }
                         }
-                    }
+                    }.withDeclFqn(somelangMainFqn)
                 }
-            }
-            val idResolver = MapIdResolver()
-            idResolver.resolveIdTo(unresolved("somelangMain"), fqn("somelangMain"))
+            }.withDeclFqn(theFileFqn)
             val tc = TypeContext()
-            tc.putType(fqn("somelangMain"), FunctionType(listOf(), IntType))
-            convertToJvmBytecodeAndRun("1368", node, tc, idResolver)
+            tc.putType(somelangMainFqn, FunctionType(listOf(), IntType))
+            convertToJvmBytecodeAndRun("1368", tc, node)
         }
-        test("invoke another function") {
+
+        @Test
+        fun `invoke another function`() {
             val node = file {
                 nodes {
                     +functionDeclaration {
@@ -108,7 +120,7 @@ class FileToJvmBytecodeTest : FunSpec({
                         parameters = emptyList()
                         returnType = TypeNameNode(id("Int"))
                         body = ret(lit(123))
-                    }
+                    }.withDeclFqn(targetFuncFqn)
                     +functionDeclaration {
                         nameNode = id("somelangMain")
                         parameters = emptyList()
@@ -116,19 +128,18 @@ class FileToJvmBytecodeTest : FunSpec({
                         body = ret(invoke {
                             target = id("targetFunc")
                             arguments = emptyList()
-                        })
-                    }
+                        }.withReferentFqn(targetFuncFqn))
+                    }.withDeclFqn(somelangMainFqn)
                 }
-            }
-            val idResolver = MapIdResolver()
-            idResolver.resolveIdTo(unresolved("somelangMain"), fqn("somelangMain"))
-            idResolver.resolveIdTo(unresolved("targetFunc"), fqn("targetFunc"))
+            }.withDeclFqn(theFileFqn)
             val tc = TypeContext()
-            tc.putType(fqn("somelangMain"), FunctionType(listOf(), IntType))
-            tc.putType(fqn("targetFunc"), FunctionType(listOf(), IntType))
-            convertToJvmBytecodeAndRun("123", node, tc, idResolver)
+            tc.putType(somelangMainFqn, FunctionType(listOf(), IntType))
+            tc.putType(targetFuncFqn, FunctionType(listOf(), IntType))
+            convertToJvmBytecodeAndRun("123", tc, node)
         }
-        test("invoke another function with an argument") {
+
+        @Test
+        fun `invoke another function with an argument`() {
             val node = file {
                 nodes {
                     +functionDeclaration {
@@ -136,7 +147,7 @@ class FileToJvmBytecodeTest : FunSpec({
                         parameters = listOf(NormalParameterDeclarationNode(id("a"), TypeNameNode(id("Int"))))
                         returnType = TypeNameNode(id("Int"))
                         body = ret(binOp(BinaryOperator.ADD, readLocal("a"), lit(456)))
-                    }
+                    }.withDeclFqn(targetFuncFqn)
                     +functionDeclaration {
                         nameNode = id("somelangMain")
                         parameters = emptyList()
@@ -144,19 +155,18 @@ class FileToJvmBytecodeTest : FunSpec({
                         body = ret(invoke {
                             target = id("targetFunc")
                             arguments = listOf(pos(lit(123)))
-                        })
-                    }
+                        }.withReferentFqn(targetFuncFqn))
+                    }.withDeclFqn(somelangMainFqn)
                 }
-            }
-            val idResolver = MapIdResolver()
-            idResolver.resolveIdTo(unresolved("somelangMain"), fqn("somelangMain"))
-            idResolver.resolveIdTo(unresolved("targetFunc"), fqn("targetFunc"))
+            }.withDeclFqn(theFileFqn)
             val tc = TypeContext()
-            tc.putType(fqn("somelangMain"), FunctionType(listOf(), IntType))
-            tc.putType(fqn("targetFunc"), FunctionType(listOf(ArgumentType("a", IntType)), IntType))
-            convertToJvmBytecodeAndRun("579", node, tc, idResolver)
+            tc.putType(somelangMainFqn, FunctionType(listOf(), IntType))
+            tc.putType(targetFuncFqn, FunctionType(listOf(ArgumentType("a", IntType)), IntType))
+            convertToJvmBytecodeAndRun("579", tc, node)
         }
-        test("invoke another function with a string argument") {
+
+        @Test
+        fun `invoke another function with a string argument`() {
             val node = file {
                 nodes {
                     +functionDeclaration {
@@ -164,7 +174,7 @@ class FileToJvmBytecodeTest : FunSpec({
                         parameters = listOf(NormalParameterDeclarationNode(id("a"), TypeNameNode(id("String"))))
                         returnType = TypeNameNode(id("String"))
                         body = ret(readLocal("a"))
-                    }
+                    }.withDeclFqn(targetFuncFqn)
                     +functionDeclaration {
                         nameNode = id("somelangMain")
                         parameters = emptyList()
@@ -172,19 +182,54 @@ class FileToJvmBytecodeTest : FunSpec({
                         body = ret(invoke {
                             target = id("targetFunc")
                             arguments = listOf(pos(lit("abc")))
-                        })
-                    }
+                        }.withReferentFqn(targetFuncFqn))
+                    }.withDeclFqn(somelangMainFqn)
                 }
-            }
-            val idResolver = MapIdResolver()
-            idResolver.resolveIdTo(unresolved("somelangMain"), fqn("somelangMain"))
-            idResolver.resolveIdTo(unresolved("targetFunc"), fqn("targetFunc"))
+            }.withDeclFqn(theFileFqn)
             val tc = TypeContext()
-            tc.putType(fqn("somelangMain"), FunctionType(listOf(), StringType))
-            tc.putType(fqn("targetFunc"), FunctionType(listOf(ArgumentType("a", StringType)), StringType))
-            convertToJvmBytecodeAndRun("abc", node, tc, idResolver)
+            tc.putType(somelangMainFqn, FunctionType(listOf(), StringType))
+            tc.putType(targetFuncFqn, FunctionType(listOf(ArgumentType("a", StringType)), StringType))
+            convertToJvmBytecodeAndRun("abc", tc, node)
         }
-        test("return string from main with variable") {
+
+        @Test
+        fun `invoke another function in another file`() {
+            val file2fqn = fqn("some.other.FileThingy")
+            val targetFuncInFile2Fqn = file2fqn + "targetFunc"
+
+            val file1Node = file {
+                nodes {
+                    +functionDeclaration {
+                        nameNode = id("somelangMain")
+                        parameters = emptyList()
+                        returnType = TypeNameNode(id("String"))
+                        body = ret(invoke {
+                            target = id("targetFunc")
+                            arguments = listOf(pos(lit("abc")))
+                        }.withReferentFqn(targetFuncInFile2Fqn))
+                    }.withDeclFqn(somelangMainFqn)
+                }
+            }.withDeclFqn(theFileFqn)
+
+            val file2node = file {
+                nodes {
+                    +functionDeclaration {
+                        nameNode = id("targetFunc")
+                        parameters = listOf(NormalParameterDeclarationNode(id("a"), TypeNameNode(id("String"))))
+                        returnType = TypeNameNode(id("String"))
+                        body = ret(readLocal("a"))
+                    }.withDeclFqn(targetFuncInFile2Fqn)
+                }
+            }.withDeclFqn(file2fqn)
+
+            val tc = TypeContext()
+            tc.putType(somelangMainFqn, FunctionType(listOf(), StringType))
+            tc.putType(targetFuncInFile2Fqn, FunctionType(listOf(ArgumentType("a", StringType)), StringType))
+            convertToJvmBytecodeAndRun("abc", tc, file1Node, file2node)
+        }
+
+        @Test
+        fun `return string from main with variable`() {
             val node = file {
                 nodes {
                     +functionDeclaration {
@@ -201,29 +246,107 @@ class FileToJvmBytecodeTest : FunSpec({
                                 +ret(readLocal("a"))
                             }
                         }
-                    }
+                    }.withDeclFqn(somelangMainFqn)
                 }
-            }
-            val idResolver = MapIdResolver()
-            idResolver.resolveIdTo(unresolved("somelangMain"), fqn("somelangMain"))
+            }.withDeclFqn(theFileFqn)
             val tc = TypeContext()
-            tc.putType(fqn("somelangMain"), FunctionType(listOf(), StringType))
-            convertToJvmBytecodeAndRun("abc", node, tc, idResolver)
+            tc.putType(somelangMainFqn, FunctionType(listOf(), StringType))
+            convertToJvmBytecodeAndRun("abc", tc, node)
         }
     }
-})
 
-private fun convertToJvmBytecodeAndRun(expected: String, node: FileNode, tc: TypeContext, idResolver: MapIdResolver) {
-    val outPath = Path.of("/Users/ewarburg/Desktop/output.jar")
-    convertToJvmBytecode(CompilationInput(listOf(node), tc, idResolver, outPath))
+    @Nested
+    inner class Classes {
+        @Test
+        fun `basic class with one constructor`() {
+            val node = file {
+                nodes {
+                    +dataDecl {
+                        typeConstructorDeclaration = typeConst {
+                            nameNode = id("Foo")
+                        }.withDeclFqn(fooFqn)
+                        valueConstructorDeclarations {
+                            +valueConstDecl {
+                                nameNode = id("Bar")
+                            }.withDeclFqn(barFqn)
+                        }
+                    }.withDeclFqn(fooFqn)
+                    +functionDeclaration {
+                        nameNode = id("somelangMain")
+                        parameters = emptyList()
+                        returnType = TypeNameNode(id("Foo"))
+                        body = ret(valueConstInvoke {
+                            target = id("Bar")
+                        }.withReferentFqn(barFqn))
+                    }.withDeclFqn(somelangMainFqn)
+                }
+            }.withDeclFqn(theFileFqn)
+            val tc = TypeContext()
+            tc.putType(somelangMainFqn, FunctionType(listOf(), SomelangObjectType(fooFqn)))
+            convertToJvmBytecodeAndRun("Bar", tc, node)
+        }
+
+        @Test
+        fun `basic class with two constructors`() {
+            val node = file {
+                nodes {
+                    +dataDecl {
+                        typeConstructorDeclaration = typeConst {
+                            nameNode = id("Foo")
+                        }.withDeclFqn(fooFqn)
+                        valueConstructorDeclarations {
+                            +valueConstDecl {
+                                nameNode = id("Bar")
+                            }.withDeclFqn(barFqn)
+                            +valueConstDecl {
+                                nameNode = id("Baz")
+                            }.withDeclFqn(bazFqn)
+                        }
+                    }.withDeclFqn(fooFqn)
+                    +functionDeclaration {
+                        nameNode = id("somelangMain")
+                        parameters = emptyList()
+                        returnType = TypeNameNode(id("Foo"))
+                        body = ret(valueConstInvoke {
+                            target = id("Baz")
+                        }.withReferentFqn(bazFqn))
+                    }.withDeclFqn(somelangMainFqn)
+                }
+            }.withDeclFqn(theFileFqn)
+            val tc = TypeContext()
+            tc.putType(somelangMainFqn, FunctionType(listOf(), SomelangObjectType(fooFqn)))
+            convertToJvmBytecodeAndRun("Baz", tc, node)
+        }
+    }
+}
+
+private fun convertToJvmBytecodeAndRun(
+    expected: String,
+    tc: TypeContext,
+    vararg nodes: FileNode
+) {
+    val outJar = File.createTempFile("output", ".jar")
+    val outPath = outJar.toPath()
     val stdout = File.createTempFile("testStdout", ".txt")
     val stderr = File.createTempFile("testStderr", ".txt")
+    println("Compiling to $outPath with stdout: $stdout and stderr: $stderr")
+    convertToJvmBytecode(CompilationInput(nodes.toList(), tc, outPath))
     "java -jar $outPath".runCommand(stdout = stdout, stderr = stderr)
 
     val error = stderr.readText()
     if (error.isNotEmpty()) {
         fail("Expected command to finish successfully, but it wrote to stderr:\n$error")
     }
-    val output = stdout.readText()
-    output.trim() shouldBe expected
+
+    val output = stdout.readText().trim()
+    if (output != expected) {
+        val unzippedDir = Files.createTempDirectory("output")
+        val unzip = "unzip $outPath -d $unzippedDir"
+        println(unzip)
+        unzip.runCommand()
+        val find = "find $unzippedDir -name *.class -exec echo {} ; -exec javap -c -verbose {} ;"
+        println(find)
+        find.runCommand()
+        assertEquals(expected, output)
+    }
 }
