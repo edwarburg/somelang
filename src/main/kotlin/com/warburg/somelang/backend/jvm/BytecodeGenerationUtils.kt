@@ -11,11 +11,15 @@ import org.objectweb.asm.commons.Method
 /**
  * @author ewarburg
  */
-fun FullyQualifiedName.toJavaInternalName(): String = if (this.isInnerClass) {
-    "${this.qualifyingSegment.toJavaInternalName()}$${this.finalSegment}"
-} else {
-    this.text.replace(".", "/")
-}
+fun FullyQualifiedName.toJavaInternalName(): JavaInternalName = JavaInternalName(
+    if (this.isInnerClass) {
+        "${this.qualifyingSegment.toJavaInternalName().text}$${this.finalSegment}"
+    } else {
+        this.text.replace(".", "/")
+    }
+)
+
+inline class JavaInternalName(val text: String)
 
 val FullyQualifiedName.isInnerClass: Boolean
     get() = this.finalSegment.firstOrNull()?.isUpperCase() == true && this.qualifyingSegment.finalSegment.firstOrNull()?.isUpperCase() == true
@@ -33,10 +37,11 @@ fun Name.asUnresolved(): UnresolvedName = when (this) {
 /**
  * Newtype for JVM type descriptors, eg, `Ljava.lang.String;`
  */
-inline class Descriptor(val descriptor: String)
-fun FullyQualifiedName.toObjectDescriptor(): Descriptor =
-    Descriptor("L${this.toJavaInternalName()};")
+inline class Descriptor(val text: String)
+fun JavaInternalName.toObjectDescriptor(): Descriptor = Descriptor("L${this.text};")
+fun FullyQualifiedName.toObjectDescriptor(): Descriptor = toJavaInternalName().toObjectDescriptor()
 
 internal fun FunctionType.asMethod(name: FullyQualifiedName): Method =
     Method(name.finalSegment, this.returnType.toASMType(), this.argumentTypes.map { it.type.toASMType() }.toTypedArray())
 
+const val SINGLETON_FIELD_NAME: String = "INSTANCE"

@@ -33,7 +33,7 @@ internal fun generateMain(somelangMain: FunctionDeclarationNode, context: Compil
             val somelangMainMethod = context.getMethod(somelangMain.getDeclarationFqn())!!
             val result = mv.newLocal(somelangMainMethod.returnType)
             mv.invokeStatic(
-                context.getType(Descriptor("L${context.currentFileNode.getDeclarationFqn().toJavaInternalName()};")),
+                context.getType(context.currentFileNode.getDeclarationFqn().toObjectDescriptor()),
                 somelangMainMethod
             )
             mv.storeLocal(result)
@@ -60,7 +60,7 @@ internal fun generateFuncDecl(context: CompilationContext, bodyBuilder: () -> Un
     val decl = context.currentFuncDeclNode
     val methodFqn = decl.getDeclarationFqn()
     val method = context.getMethod(methodFqn) ?: throw IllegalArgumentException("no method for ${decl.nameNode.name}")
-    context.withMethodVisitor(GeneratorAdapter(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, method, null, null, cw)) {
+    context.withMethodVisitor(GeneratorAdapter(Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC, method, null, null, cw)) {
         val mv = context.mv
         context.symbolTable.withOpaqueFrame {
             try {

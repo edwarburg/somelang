@@ -22,7 +22,7 @@ fun TypeExpressionNode.toSomelangType(): SomelangType = when (this) {
 fun SomelangType.toASMType(): Type = when (this) {
     is IntType -> Type.INT_TYPE
     is VoidType -> Type.VOID_TYPE
-    is SomelangObjectType -> Type.getType(this.fullyQualifiedName.toObjectDescriptor().descriptor)
+    is SomelangObjectType -> Type.getType(this.fullyQualifiedName.toObjectDescriptor().text)
     // TODO Type for function?
     is FunctionType -> throw UnsupportedOperationException("Not supporting function values for the moment")
 }

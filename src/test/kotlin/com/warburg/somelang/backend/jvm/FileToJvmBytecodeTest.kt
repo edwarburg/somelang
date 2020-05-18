@@ -12,6 +12,8 @@ import java.io.File
 import java.nio.file.Files
 import com.warburg.somelang.ast.typeConstDecl as typeConst
 
+const val OUTPUT_JAR_ON_FAILURE = false
+
 val theFileFqn = fqn("com.somelang.TheFile")
 val somelangMainFqn = fqn("${theFileFqn.text}.somelangMain")
 val targetFuncFqn = fqn("${theFileFqn.text}.targetFunc")
@@ -329,7 +331,11 @@ private fun convertToJvmBytecodeAndRun(
     val outPath = outJar.toPath()
     val stdout = File.createTempFile("testStdout", ".txt")
     val stderr = File.createTempFile("testStderr", ".txt")
-    println("Compiling to $outPath with stdout: $stdout and stderr: $stderr")
+
+    if (OUTPUT_JAR_ON_FAILURE) {
+        println("Compiling to $outPath with stdout: $stdout and stderr: $stderr")
+    }
+
     convertToJvmBytecode(CompilationInput(nodes.toList(), tc, outPath))
     "java -jar $outPath".runCommand(stdout = stdout, stderr = stderr)
 
@@ -342,11 +348,12 @@ private fun convertToJvmBytecodeAndRun(
     if (output != expected) {
         val unzippedDir = Files.createTempDirectory("output")
         val unzip = "unzip $outPath -d $unzippedDir"
-        println(unzip)
-        unzip.runCommand()
         val find = "find $unzippedDir -name *.class -exec echo {} ; -exec javap -c -verbose {} ;"
-        println(find)
-        find.runCommand()
+        println(unzip + "; " + find)
+        if (OUTPUT_JAR_ON_FAILURE) {
+            unzip.runCommand()
+            find.runCommand()
+        }
         assertEquals(expected, output)
     }
 }

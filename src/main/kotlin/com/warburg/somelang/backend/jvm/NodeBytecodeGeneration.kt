@@ -83,12 +83,16 @@ internal fun generateNode(node: Node, context: CompilationContext) {
         }
         is ValueConstructorInvocationNode -> {
             val referentFqn = node.getReferentFqn()
-            val mv = context.mv
-            val targetType = Type.getType(referentFqn.toObjectDescriptor().descriptor)
-            mv.newInstance(targetType)
-            mv.dup()
-            // TODO parameters
-            mv.invokeConstructor(targetType, Method.getMethod("void <init>()"))
+            val targetType = Type.getType(referentFqn.toObjectDescriptor().text)
+            val isSingleton = true// TODO Determine cardinality of constructor
+            if (isSingleton) {
+                mv.getStatic(targetType, SINGLETON_FIELD_NAME, targetType)
+            } else {
+                mv.newInstance(targetType)
+                mv.dup()
+                // TODO parameters
+                mv.invokeConstructor(targetType, Method.getMethod("void <init>()"))
+            }
         }
         else -> throw UnsupportedOperationException("Don't know how to compile $node")
     }

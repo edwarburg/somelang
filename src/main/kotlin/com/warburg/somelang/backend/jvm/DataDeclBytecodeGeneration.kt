@@ -24,7 +24,7 @@ internal fun generateDataDecl(
 
     // make outer class with data type's name
     // TODO Access modifiers, generic parms
-    outerCw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC + Opcodes.ACC_ABSTRACT, outerInternalName, null, "java/lang/Object", null)
+    outerCw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC or Opcodes.ACC_ABSTRACT, outerInternalName.text, null, "java/lang/Object", null)
     generateConstructor(
         Opcodes.ACC_PROTECTED,
         Type.getType(Object::class.java),
@@ -36,23 +36,30 @@ internal fun generateDataDecl(
     for (valueConstDecl in dd.valueConstructorDeclarations) {
         val innerSimpleName = valueConstDecl.nameNode.name.text
         val innerInternalName = valueConstDecl.getDeclarationFqn().toJavaInternalName()
-        val innerAcc = Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC + Opcodes.ACC_FINAL
-        outerCw.visitInnerClass(innerInternalName, outerInternalName, innerSimpleName, innerAcc)
+        val innerAcc = Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC or Opcodes.ACC_FINAL
+        val innerType = Type.getType(innerInternalName.toObjectDescriptor().text)
+        val isSingleton = valueConstDecl.parameters.isEmpty()
+
+        outerCw.visitInnerClass(innerInternalName.text, outerInternalName.text, innerSimpleName, innerAcc)
+        outerCw.visitNestMember(innerInternalName.text)
 
         val innerCw = nodeFqnToClassWriter.getValue(valueConstDecl.getDeclarationFqn())
         context.withClassWriter(innerCw) {
-            innerCw.visit(Opcodes.V1_8, innerAcc, innerInternalName, null, outerInternalName, null)
-            generateFields(valueConstDecl, context)
+            innerCw.visit(Opcodes.V1_8, innerAcc, innerInternalName.text, null, outerInternalName.text, null)
+            innerCw.visitNestHost(outerInternalName.text)
+
+            generateFields(valueConstDecl, innerType, isSingleton, context)
             generateConstructor(
-                Opcodes.ACC_PUBLIC,
-                Type.getType(outerFqn.toObjectDescriptor().descriptor),
+                if (isSingleton) Opcodes.ACC_PRIVATE else Opcodes.ACC_PUBLIC,
+                Type.getType(outerFqn.toObjectDescriptor().text),
                 Method.getMethod("void <init>()"),
                 emptyList(),
                 context
             )
+            generateClassInit(innerType, isSingleton, context)
             generateStandardDataMethods(
                 valueConstDecl,
-                innerInternalName,
+                innerInternalName.text,
                 innerSimpleName,
                 context
             )
@@ -62,8 +69,11 @@ internal fun generateDataDecl(
     outerCw.visitEnd()
 }
 
-private fun generateFields(valueConstDecl: ValueConstructorDeclarationNode, context: CompilationContext) {
-
+private fun generateFields(valueConstDecl: ValueConstructorDeclarationNode, forType: Type, isSingleton: Boolean, context: CompilationContext) {
+    if (isSingleton) {
+        val fv = context.cw.visitField(Opcodes.ACC_PUBLIC or Opcodes.ACC_FINAL or Opcodes.ACC_STATIC, SINGLETON_FIELD_NAME, forType.descriptor,null, null)
+        fv.visitEnd()
+    }
 }
 
 private fun generateConstructor(access: Int, superClassType: Type, superConstructorMethod: Method, parameters: List<Any>, context: CompilationContext) {
@@ -80,6 +90,20 @@ private fun generateConstructor(access: Int, superClassType: Type, superConstruc
     mv.finish()
 }
 
+private fun generateClassInit(forType: Type, isSingleton: Boolean, context: CompilationContext) {
+    if (isSingleton) {
+        val mv = GeneratorAdapter(Opcodes.ACC_STATIC, Method.getMethod("void <clinit>()"), null, null, context.cw)
+        context.withMethodVisitor(mv) {
+            mv.newInstance(forType)
+            mv.dup()
+            mv.invokeConstructor(forType, Method.getMethod("void <init>()"))
+            mv.putStatic(forType, SINGLETON_FIELD_NAME, forType)
+            mv.returnValue()
+            mv.finish()
+        }
+    }
+}
+
 private fun generateStandardDataMethods(
     valueConstDecl: ValueConstructorDeclarationNode,
     internalName: String,
@@ -92,7 +116,7 @@ private fun generateStandardDataMethods(
 
 private fun generateToString(simpleName: String, valueConstDecl: ValueConstructorDeclarationNode, context: CompilationContext) {
     val mv = GeneratorAdapter(
-        Opcodes.ACC_PUBLIC + Opcodes.ACC_FINAL,
+        Opcodes.ACC_PUBLIC or Opcodes.ACC_FINAL,
         Method.getMethod(Object::toString.javaMethod!!),
         null,
         null,

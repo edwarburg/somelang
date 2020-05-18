@@ -72,7 +72,7 @@ internal class CompilationContext(val input: CompilationInput) {
 
     fun getType(clazz: KClass<*>): Type = getType(clazz.java)
     fun getType(clazz: Class<*>): Type = this.typeByClassCache.computeIfAbsent(clazz) { Type.getType(it) }
-    fun getType(descriptor: Descriptor): Type = this.typeByDescriptorCache.computeIfAbsent(descriptor) { Type.getType(it.descriptor) }
+    fun getType(descriptor: Descriptor): Type = this.typeByDescriptorCache.computeIfAbsent(descriptor) { Type.getType(it.text) }
     fun getMethod(target: FullyQualifiedName): Method? = if (target.finalSegment == "main") {
         Method.getMethod("void main(String[])")
     } else {

@@ -14,4 +14,7 @@ main.som
 
 out/
 
+src/main/java/com/warburg/example/Example.java
+
 **/*.class
+

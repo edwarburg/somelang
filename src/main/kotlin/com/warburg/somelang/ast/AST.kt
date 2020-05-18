@@ -24,11 +24,11 @@ sealed class Node : Attributable {
 
 abstract class TypeExpressionNode : Node()
 @AutoDsl(dslName = "typeConstructorInvoke")
-class TypeConstructorInvocationNode(val target: IdentifierNode, val arguments: List<TypeExpressionNode>) : TypeExpressionNode()
+class TypeConstructorInvocationNode(val target: IdentifierNode, val arguments: List<TypeExpressionNode> = emptyList()) : TypeExpressionNode()
 @AutoDsl(dslName = "typeName")
 class TypeNameNode(val nameNode: IdentifierNode) : TypeExpressionNode()
 @AutoDsl(dslName = "functionType")
-class FunctionTypeExpressionNode(val argumentTypes: List<TypeExpressionNode>, val returnType: TypeExpressionNode) : TypeExpressionNode()
+class FunctionTypeExpressionNode(val argumentTypes: List<TypeExpressionNode> = emptyList(), val returnType: TypeExpressionNode) : TypeExpressionNode()
 
 
 @AutoDsl(dslName = "file")
@@ -40,7 +40,7 @@ sealed class ParameterDeclarationNode : Node()
 data class NormalParameterDeclarationNode(val nameNode: IdentifierNode, val type: TypeExpressionNode? = null) : ParameterDeclarationNode()
 
 @AutoDsl(dslName = "block")
-data class BlockNode(val statements: List<Node>) : Node()
+data class BlockNode(val statements: List<Node> = emptyList()) : Node()
 
 @AutoDsl(dslName = "ret")
 data class ReturnNode(val value: Node) : Node()
@@ -79,12 +79,13 @@ sealed class ArgumentNode : Node()
 data class PositionalArgumentNode(val value: Node) : ArgumentNode()
 
 @AutoDsl(dslName = "dataDecl")
-data class DataDeclarationNode(val typeConstructorDeclaration: TypeConstructorDeclarationNode, val valueConstructorDeclarations: List<ValueConstructorDeclarationNode>) : Node()
+data class DataDeclarationNode(val typeConstructorDeclaration: TypeConstructorDeclarationNode, val valueConstructorDeclarations: List<ValueConstructorDeclarationNode> = emptyList()) : Node()
 
 @AutoDsl(dslName = "typeConstDecl")
-data class TypeConstructorDeclarationNode(val nameNode: IdentifierNode) : Node()
+data class TypeConstructorDeclarationNode(val nameNode: IdentifierNode, val parameters: List<IdentifierNode> = emptyList()) : Node()
+
 @AutoDsl(dslName = "valueConstDecl")
-data class ValueConstructorDeclarationNode(val nameNode: IdentifierNode) : Node()
+data class ValueConstructorDeclarationNode(val nameNode: IdentifierNode, val parameters: List<TypeExpressionNode> = emptyList()) : Node()
 
 @AutoDsl(dslName = "valueConstInvoke")
 data class ValueConstructorInvocationNode(val target: IdentifierNode) : Node()

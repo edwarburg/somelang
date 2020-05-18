@@ -1,17 +1,26 @@
 package com.warburg.somelang;
 
 // data Foo = Bar
-abstract class Foo {
+public abstract class Foo {
     private Foo() {}
     // TODO can't make inner class have the same name... any workaround?
-    final static class Bar extends Foo {}
+    public final static class Bar extends Foo {
+        public static final Bar INSTANCE = new Bar();
+        private Bar() {}
+    }
 }
 
 // data Foo2 = Bar | Baz
 abstract class Foo2 {
     private Foo2() {}
-    final static class Bar extends Foo2 {}
-    final static class Baz extends Foo2 {}
+    final static class Bar extends Foo2 {
+        public static final Bar INSTANCE = new Bar();
+        private Bar() {}
+    }
+    final static class Baz extends Foo2 {
+        public static final Baz INSTANCE = new Baz();
+        private Baz() {}
+    }
 }
 
 // data Foo3 = Bar Int

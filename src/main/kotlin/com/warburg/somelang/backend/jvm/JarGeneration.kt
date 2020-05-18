@@ -30,7 +30,7 @@ fun convertToJvmBytecode(compilationInput: CompilationInput) {
     val manifest = Manifest().apply {
         mainAttributes.putValue("Manifest-Version", "1.0")
         if (fileWithMain != null) {
-            mainAttributes.putValue("Main-class", fileWithMain.getDeclarationFqn().toJavaInternalName())
+            mainAttributes.putValue("Main-class", fileWithMain.getDeclarationFqn().toJavaInternalName().text)
         }
     }
 
@@ -64,7 +64,7 @@ fun findMain(compilationInput: CompilationInput): FileNode? {
 
 class OutputClass(val bytes: ByteArray, val zipEntry: ZipEntry)
 
-private const val CLASSWRITER_OPTIONS = ClassWriter.COMPUTE_MAXS + ClassWriter.COMPUTE_FRAMES
+private const val CLASSWRITER_OPTIONS = ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES
 
 private fun generateClassesForFile(context: CompilationContext): Collection<OutputClass> {
     val nodeFqnToClassWriter = mutableMapOf<FullyQualifiedName, ClassWriter>()
@@ -74,7 +74,7 @@ private fun generateClassesForFile(context: CompilationContext): Collection<Outp
     val funcDecls = mutableListOf<FunctionDeclarationNode>()
 
     val fileFqn = context.currentFileNode.getDeclarationFqn()
-    val fileCw = makeAndInitClassWriter(fileFqn.toJavaInternalName())
+    val fileCw = makeAndInitClassWriter(fileFqn.toJavaInternalName().text)
     nodeFqnToClassWriter[fileFqn] = fileCw
     classWriterToOwnerFqn[fileCw] = fileFqn
 
@@ -136,7 +136,7 @@ private fun generateClassesForFile(context: CompilationContext): Collection<Outp
         cw.visitEnd()
         OutputClass(
             cw.toByteArray(),
-            ZipEntry(ownerFqn.toJavaInternalName() + ".class")
+            ZipEntry(ownerFqn.toJavaInternalName().text + ".class")
         )
     }
 }
