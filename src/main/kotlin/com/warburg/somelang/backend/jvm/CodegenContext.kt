@@ -3,10 +3,10 @@ package com.warburg.somelang.backend.jvm
 import com.warburg.somelang.ast.DataDeclarationNode
 import com.warburg.somelang.ast.FileNode
 import com.warburg.somelang.ast.FunctionDeclarationNode
-import com.warburg.somelang.backend.common.CompilationInput
-import com.warburg.somelang.common.NullableProperty
+import com.warburg.somelang.backend.common.CodegenInput
+import com.warburg.somelang.utils.NullableProperty
 import com.warburg.somelang.common.SymbolTable
-import com.warburg.somelang.common.nullable
+import com.warburg.somelang.utils.nullable
 import com.warburg.somelang.id.FullyQualifiedName
 import com.warburg.somelang.id.UnresolvedName
 import com.warburg.somelang.middleend.FunctionType
@@ -22,11 +22,11 @@ import kotlin.reflect.jvm.isAccessible
 /**
  * @author ewarburg
  */
-internal class CompilationContext(val input: CompilationInput) {
+internal class CodegenContext(val input: CodegenInput) {
     var currentOutputJarFile: File by nullable()
-    var currentFileNode: FileNode by nullable()
-    var currentDataDeclNode: DataDeclarationNode by nullable()
-    var currentFuncDeclNode: FunctionDeclarationNode by nullable()
+    var currentFileNode: FileNode<CodegenPrereqPhase> by nullable()
+    var currentDataDeclNode: DataDeclarationNode<CodegenPrereqPhase> by nullable()
+    var currentFuncDeclNode: FunctionDeclarationNode<CodegenPrereqPhase> by nullable()
     var currFirstArg: Int by nullable()
     var currFirstLocal: Int by nullable()
     var cw: ClassWriter by nullable()
@@ -60,9 +60,9 @@ internal class CompilationContext(val input: CompilationInput) {
     }
 
     inline fun <A> withCurrentOutputJarFile(newValue: File, action: () -> A): A = withField(this::currentOutputJarFile, newValue, action)
-    inline fun <A> withCurrentFileNode(newValue: FileNode, action: () -> A): A = withField(this::currentFileNode, newValue, action)
-    inline fun <A> withCurrentDataDeclNode(newValue: DataDeclarationNode, action: () -> A): A = withField(this::currentDataDeclNode, newValue, action)
-    inline fun <A> withCurrentFuncDeclNode(newValue: FunctionDeclarationNode, action: () -> A): A = withField(this::currentFuncDeclNode, newValue) {
+    inline fun <A> withCurrentFileNode(newValue: FileNode<CodegenPrereqPhase>, action: () -> A): A = withField(this::currentFileNode, newValue, action)
+    inline fun <A> withCurrentDataDeclNode(newValue: DataDeclarationNode<CodegenPrereqPhase>, action: () -> A): A = withField(this::currentDataDeclNode, newValue, action)
+    inline fun <A> withCurrentFuncDeclNode(newValue: FunctionDeclarationNode<CodegenPrereqPhase>, action: () -> A): A = withField(this::currentFuncDeclNode, newValue) {
         withField(this::currFirstArg, 0) {
             withField(this::currFirstLocal, this.currentFuncDeclNode.parameters.size + this.currFirstArg, action)
         }

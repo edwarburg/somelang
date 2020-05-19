@@ -3,7 +3,7 @@ package com.warburg.somelang.backend.jvm
 import com.warburg.somelang.ast.DataDeclarationNode
 import com.warburg.somelang.ast.FileNode
 import com.warburg.somelang.ast.FunctionDeclarationNode
-import com.warburg.somelang.backend.common.CompilationInput
+import com.warburg.somelang.backend.common.CodegenInput
 import com.warburg.somelang.id.FullyQualifiedName
 import com.warburg.somelang.middleend.getDeclarationFqn
 import org.objectweb.asm.ClassWriter
@@ -16,16 +16,16 @@ import java.util.zip.ZipEntry
 /**
  * @author ewarburg
  */
-fun convertToJvmBytecode(compilationInput: CompilationInput) {
-    val context = CompilationContext(compilationInput)
-    val jarFile = compilationInput.outPath.toFile()
+fun convertToJvmBytecode(codegenInput: CodegenInput) {
+    val context = CodegenContext(codegenInput)
+    val jarFile = codegenInput.outPath.toFile()
     jarFile.createNewFile()
     context.currentOutputJarFile = jarFile
 
     // TODO main with runtime parameters?
     // TODO fix hard coding of class names and types etc
 
-    val fileWithMain = findMain(compilationInput)
+    val fileWithMain = findMain(codegenInput)
 
     val manifest = Manifest().apply {
         mainAttributes.putValue("Manifest-Version", "1.0")
@@ -36,7 +36,7 @@ fun convertToJvmBytecode(compilationInput: CompilationInput) {
 
     context.withCurrentOutputJarFile(jarFile) {
         JarOutputStream(FileOutputStream(jarFile), manifest).use { jos ->
-            compilationInput.filesToCompile
+            codegenInput.filesToCompile
                 .flatMap { fileNode ->
                     context.withCurrentFileNode(fileNode) {
                         generateClassesForFile(context)
@@ -52,9 +52,9 @@ fun convertToJvmBytecode(compilationInput: CompilationInput) {
 
 const val MAIN_FUNC_NAME: String = "somelangMain"
 
-fun findMain(compilationInput: CompilationInput): FileNode? {
-    return compilationInput.filesToCompile.filter { fileNode ->
-        fileNode.nodes.any { topLevelNode -> topLevelNode is FunctionDeclarationNode && topLevelNode.nameNode.name.text == MAIN_FUNC_NAME }
+fun findMain(codegenInput: CodegenInput): FileNode<CodegenPrereqPhase>? {
+    return codegenInput.filesToCompile.filter { fileNode ->
+        fileNode.nodes.any { topLevelNode -> topLevelNode is FunctionDeclarationNode<*> && topLevelNode.nameNode.name.text == MAIN_FUNC_NAME }
     }.also { nodes ->
         if (nodes.size > 1) {
             throw UnsupportedOperationException("More than one main")
@@ -66,12 +66,12 @@ class OutputClass(val bytes: ByteArray, val zipEntry: ZipEntry)
 
 private const val CLASSWRITER_OPTIONS = ClassWriter.COMPUTE_MAXS or ClassWriter.COMPUTE_FRAMES
 
-private fun generateClassesForFile(context: CompilationContext): Collection<OutputClass> {
+private fun generateClassesForFile(context: CodegenContext): Collection<OutputClass> {
     val nodeFqnToClassWriter = mutableMapOf<FullyQualifiedName, ClassWriter>()
     val classWriterToOwnerFqn = mutableMapOf<ClassWriter, FullyQualifiedName>()
 
-    val dataDecls = mutableListOf<DataDeclarationNode>()
-    val funcDecls = mutableListOf<FunctionDeclarationNode>()
+    val dataDecls = mutableListOf<DataDeclarationNode<CodegenPrereqPhase>>()
+    val funcDecls = mutableListOf<FunctionDeclarationNode<CodegenPrereqPhase>>()
 
     val fileFqn = context.currentFileNode.getDeclarationFqn()
     val fileCw = makeAndInitClassWriter(fileFqn.toJavaInternalName().text)

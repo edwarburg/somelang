@@ -1,12 +1,15 @@
 package com.warburg.somelang.backend.jvm
 
 import com.warburg.somelang.backend.common.toASMType
+import com.warburg.somelang.common.TypecheckingPhase
 import com.warburg.somelang.id.FullyQualifiedName
 import com.warburg.somelang.id.Name
 import com.warburg.somelang.id.UnresolvedName
 import com.warburg.somelang.middleend.FunctionType
 import org.objectweb.asm.commons.GeneratorAdapter
 import org.objectweb.asm.commons.Method
+
+typealias CodegenPrereqPhase = TypecheckingPhase
 
 /**
  * @author ewarburg

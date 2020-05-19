@@ -1,16 +1,18 @@
 package com.warburg.somelang.ast
 
-import com.autodsl.annotation.AutoDsl
 import com.warburg.somelang.attributable.AttrDef
 import com.warburg.somelang.attributable.AttrVal
 import com.warburg.somelang.attributable.Attributable
+import com.warburg.somelang.common.Phase
 import com.warburg.somelang.id.Name
 
-
 /**
+ * @param P denotes the phases that this Node has passed through. Passing through a phase usually adds some sort of attribute
+ *          onto the node, and by making extension functions to read attributes off Node<Foo>, you can restrict those
+ *          extension functions to only Nodes that have already passed through phase Foo.
  * @author ewarburg
  */
-sealed class Node : Attributable {
+sealed class Node<P : Phase> : Attributable {
     private val attributesByDef: MutableMap<AttrDef<*>, AttrVal<*>> = mutableMapOf()
     override val attributes: Collection<AttrVal<*>>
         get() = this.attributesByDef.values
@@ -22,72 +24,56 @@ sealed class Node : Attributable {
     }
 }
 
-abstract class TypeExpressionNode : Node()
-@AutoDsl(dslName = "typeConstructorInvoke")
-class TypeConstructorInvocationNode(val target: IdentifierNode, val arguments: List<TypeExpressionNode> = emptyList()) : TypeExpressionNode()
-@AutoDsl(dslName = "typeName")
-class TypeNameNode(val nameNode: IdentifierNode) : TypeExpressionNode()
-@AutoDsl(dslName = "functionType")
-class FunctionTypeExpressionNode(val argumentTypes: List<TypeExpressionNode> = emptyList(), val returnType: TypeExpressionNode) : TypeExpressionNode()
+abstract class TypeExpressionNode<P : Phase> : Node<P>()
 
+class TypeConstructorInvocationNode<P : Phase>(val target: IdentifierNode<P>, val arguments: List<TypeExpressionNode<P>> = emptyList()) : TypeExpressionNode<P>()
 
-@AutoDsl(dslName = "file")
-data class FileNode(val nodes: List<Node>) : Node()
+class TypeNameNode<P : Phase>(val nameNode: IdentifierNode<P>) : TypeExpressionNode<P>()
 
-@AutoDsl(dslName = "functionDeclaration")
-data class FunctionDeclarationNode(val nameNode: IdentifierNode, val body: Node, val parameters: List<ParameterDeclarationNode> = emptyList(), val returnType: TypeExpressionNode? = null) : Node()
-sealed class ParameterDeclarationNode : Node()
-data class NormalParameterDeclarationNode(val nameNode: IdentifierNode, val type: TypeExpressionNode? = null) : ParameterDeclarationNode()
+class FunctionTypeExpressionNode<P : Phase>(val argumentTypes: List<TypeExpressionNode<P>> = emptyList(), val returnType: TypeExpressionNode<P>) : TypeExpressionNode<P>()
 
-@AutoDsl(dslName = "block")
-data class BlockNode(val statements: List<Node> = emptyList()) : Node()
+data class FileNode<P : Phase>(val nodes: List<Node<P>>) : Node<P>()
 
-@AutoDsl(dslName = "ret")
-data class ReturnNode(val value: Node) : Node()
+data class FunctionDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val body: Node<P>, val parameters: List<ParameterDeclarationNode<P>> = emptyList(), val returnType: TypeExpressionNode<P>? = null) : Node<P>()
+sealed class ParameterDeclarationNode<P : Phase> : Node<P>()
+data class NormalParameterDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val type: TypeExpressionNode<P>? = null) : ParameterDeclarationNode<P>()
 
-@AutoDsl(dslName = "localVarDeclaration")
-data class LocalVarDeclarationNode(val nameNode: IdentifierNode, val rhs: Node, val type: TypeExpressionNode? = null) : Node()
+data class BlockNode<P : Phase>(val statements: List<Node<P>> = emptyList()) : Node<P>()
 
-@AutoDsl(dslName = "readLocalVar")
-data class ReadLocalVarNode(val target: IdentifierNode) : Node()
+data class ReturnNode<P : Phase>(val value: Node<P>) : Node<P>()
 
-@AutoDsl(dslName = "identifier")
-data class IdentifierNode(val name: Name) : Node()
+data class LocalVarDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val rhs: Node<P>, val type: TypeExpressionNode<P>? = null) : Node<P>()
 
-@AutoDsl(dslName = "intLiteral")
-data class IntLiteralNode(val value: Int) : Node()
-@AutoDsl(dslName = "stringLiteral")
-data class StringLiteralNode(val value: String) : Node()
+data class ReadLocalVarNode<P : Phase>(val target: IdentifierNode<P>) : Node<P>()
 
-@AutoDsl(dslName = "binaryOperator")
-data class BinaryOperationNode(val operator: BinaryOperator, val lhs: Node, val rhs: Node) : Node()
+data class IdentifierNode<P : Phase>(val name: Name) : Node<P>()
+
+data class IntLiteralNode<P : Phase>(val value: Int) : Node<P>()
+
+data class StringLiteralNode<P : Phase>(val value: String) : Node<P>()
+
+data class BinaryOperationNode<P : Phase>(val operator: BinaryOperator, val lhs: Node<P>, val rhs: Node<P>) : Node<P>()
 
 enum class BinaryOperator {
     ADD
 }
 
-@AutoDsl(dslName = "invoke")
-data class InvokeNode(val target: IdentifierNode, val arguments: List<ArgumentNode> = emptyList()) : Node()
+data class InvokeNode<P : Phase>(val target: IdentifierNode<P>, val arguments: List<ArgumentNode<P>> = emptyList()) : Node<P>()
 
-@AutoDsl(dslName = "getStaticValue")
-data class GetStaticValueNode(val target: IdentifierNode) : Node()
+data class GetStaticValueNode<P : Phase>(val target: IdentifierNode<P>) : Node<P>()
 
-@AutoDsl(dslName = "readField")
-data class ReadFieldValueNode(val receiver: Node, val field: IdentifierNode) : Node()
+data class ReadFieldValueNode<P : Phase>(val receiver: Node<P>, val field: IdentifierNode<P>) : Node<P>()
 
-sealed class ArgumentNode : Node()
-data class PositionalArgumentNode(val value: Node) : ArgumentNode()
+sealed class ArgumentNode<P : Phase> : Node<P>()
+data class PositionalArgumentNode<P : Phase>(val value: Node<P>) : ArgumentNode<P>()
 
-@AutoDsl(dslName = "dataDecl")
-data class DataDeclarationNode(val typeConstructorDeclaration: TypeConstructorDeclarationNode, val valueConstructorDeclarations: List<ValueConstructorDeclarationNode> = emptyList()) : Node()
+data class DataDeclarationNode<P : Phase>(val typeConstructorDeclaration: TypeConstructorDeclarationNode<P>, val valueConstructorDeclarations: List<ValueConstructorDeclarationNode<P>> = emptyList()) : Node<P>()
 
-@AutoDsl(dslName = "typeConstDecl")
-data class TypeConstructorDeclarationNode(val nameNode: IdentifierNode, val parameters: List<IdentifierNode> = emptyList()) : Node()
+data class TypeConstructorDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val parameters: List<IdentifierNode<P>> = emptyList()) : Node<P>()
 
-@AutoDsl(dslName = "valueConstDecl")
-data class ValueConstructorDeclarationNode(val nameNode: IdentifierNode, val parameters: List<TypeExpressionNode> = emptyList()) : Node()
+data class ValueConstructorDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val parameters: List<TypeExpressionNode<P>> = emptyList()) : Node<P>()
 
-@AutoDsl(dslName = "valueConstInvoke")
-data class ValueConstructorInvocationNode(val target: IdentifierNode) : Node()
+data class ValueConstructorInvocationNode<P : Phase>(val target: IdentifierNode<P>) : Node<P>()
 
-object NoOpNode : Node()
+// NoOp is not an object because each noop might carry its own set of attributes
+class NoOpNode<P : Phase> : Node<P>()

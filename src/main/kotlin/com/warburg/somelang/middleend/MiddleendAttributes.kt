@@ -1,17 +1,26 @@
 package com.warburg.somelang.middleend
 
 import com.warburg.somelang.ast.Node
+import com.warburg.somelang.ast.withAttribute
 import com.warburg.somelang.attributable.AttrDef
+import com.warburg.somelang.attributable.Attributable
+import com.warburg.somelang.common.NameResolvingPhase
+import com.warburg.somelang.common.TypecheckingPhase
 import com.warburg.somelang.id.FullyQualifiedName
 
 /**
  * @author ewarburg
  */
-object DeclarationFqnAttrNode : AttrDef<FullyQualifiedName>
-fun Node.getDeclarationFqn(): FullyQualifiedName = getAttribute(DeclarationFqnAttrNode)!!
+private object DeclarationFqnAttrNode : AttrDef<FullyQualifiedName>
+fun <P : NameResolvingPhase> Node<P>.getDeclarationFqn(): FullyQualifiedName = getAttribute(DeclarationFqnAttrNode)!!
+fun <K : Attributable> K.withDeclFqn(fqn: FullyQualifiedName): K = withAttribute(DeclarationFqnAttrNode, fqn)
 
-object ReferentFqnAttrDef : AttrDef<FullyQualifiedName>
-fun Node.getReferentFqn(): FullyQualifiedName = getAttribute(ReferentFqnAttrDef)!!
+private object ReferentFqnAttrDef : AttrDef<FullyQualifiedName>
+fun <P : NameResolvingPhase> Node<P>.getReferentFqn(): FullyQualifiedName = getAttribute(ReferentFqnAttrDef)!!
+fun <K : Attributable> K.withReferentFqn(fqn: FullyQualifiedName): K = withAttribute(ReferentFqnAttrDef, fqn)
 
-object ExpressionTypeAttrDef : AttrDef<SomelangType>
-fun Node.getExpressionType(): SomelangType = getAttribute(ExpressionTypeAttrDef)!!
+private object ExpressionTypeAttrDef : AttrDef<SomelangType>
+fun <P : TypecheckingPhase> Node<P>.getExpressionType(): SomelangType = getAttribute(ExpressionTypeAttrDef)!!
+fun <K : Attributable> K.withExpressionType(type: SomelangType): K = withAttribute(ExpressionTypeAttrDef, type)
+
+

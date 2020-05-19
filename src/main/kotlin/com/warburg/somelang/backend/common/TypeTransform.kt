@@ -3,11 +3,12 @@ package com.warburg.somelang.backend.common
 import com.warburg.somelang.ast.TypeExpressionNode
 import com.warburg.somelang.ast.TypeNameNode
 import com.warburg.somelang.backend.jvm.toObjectDescriptor
+import com.warburg.somelang.common.NameResolvingPhase
 import com.warburg.somelang.middleend.*
 import org.objectweb.asm.Type
 
-fun TypeExpressionNode.toSomelangType(): SomelangType = when (this) {
-    is TypeNameNode -> when (this.nameNode.name.text) {
+fun <P : NameResolvingPhase> TypeExpressionNode<P>.toSomelangType(): SomelangType = when (this) {
+    is TypeNameNode<P> -> when (this.nameNode.name.text) {
         "Int" -> IntType
         "String" -> StringType
         "void" -> VoidType

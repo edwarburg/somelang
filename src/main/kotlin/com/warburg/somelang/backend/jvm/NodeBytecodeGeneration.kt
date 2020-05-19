@@ -13,20 +13,20 @@ import org.objectweb.asm.commons.Method
 /**
  * @author ewarburg
  */
-internal fun generateNode(node: Node, context: CompilationContext) {
+internal fun generateNode(node: Node<CodegenPrereqPhase>, context: CodegenContext) {
     val mv = context.mv
 
     when (node) {
         is NoOpNode -> {
             mv.visitInsn(Opcodes.NOP)
         }
-        is IntLiteralNode -> {
+        is IntLiteralNode<CodegenPrereqPhase> -> {
             mv.visitLdcInsn(node.value)
         }
-        is StringLiteralNode -> {
+        is StringLiteralNode<CodegenPrereqPhase> -> {
             mv.visitLdcInsn(node.value)
         }
-        is ReadLocalVarNode -> {
+        is ReadLocalVarNode<CodegenPrereqPhase> -> {
             val targetIdx = context.symbolTable.lookup(node.target.name.asUnresolved())?.jvmLocalIdx
                 ?: throw UnsupportedOperationException("no local variable named ${node.target.name}")
             if (targetIdx < context.currFirstArg) {
@@ -37,18 +37,18 @@ internal fun generateNode(node: Node, context: CompilationContext) {
                 mv.loadLocal(targetIdx)
             }
         }
-        is ReturnNode -> {
+        is ReturnNode<CodegenPrereqPhase> -> {
             generateNode(node.value, context)
             mv.returnValue()
         }
-        is BlockNode -> {
+        is BlockNode<CodegenPrereqPhase> -> {
             context.symbolTable.withTransparentFrame {
                 for (statement in node.statements) {
                     generateNode(statement, context)
                 }
             }
         }
-        is BinaryOperationNode -> {
+        is BinaryOperationNode<CodegenPrereqPhase> -> {
             // TODO probably will support binary-operator-as-method-invocation type stuff here eventually
             val opcode = when (node.operator) {
                 BinaryOperator.ADD -> GeneratorAdapter.ADD
@@ -59,7 +59,7 @@ internal fun generateNode(node: Node, context: CompilationContext) {
             val type = Type.INT_TYPE
             mv.math(opcode, type)
         }
-        is LocalVarDeclarationNode -> {
+        is LocalVarDeclarationNode<CodegenPrereqPhase> -> {
             // TODO this type resolution should already be done at type analysis time
             val typeOfLocal = node.type!!.toSomelangType().toASMType()
             val index = mv.newLocal(typeOfLocal)
@@ -69,19 +69,19 @@ internal fun generateNode(node: Node, context: CompilationContext) {
             generateNode(node.rhs, context)
             mv.storeLocal(index)
         }
-        is InvokeNode -> {
+        is InvokeNode<CodegenPrereqPhase> -> {
             val referentFqn = node.getReferentFqn()
             val targetDecl = context.getMethod(referentFqn)!!
             for (argNode in node.arguments.asReversed()) {
                 when (argNode) {
-                    is PositionalArgumentNode -> {
+                    is PositionalArgumentNode<CodegenPrereqPhase> -> {
                         generateNode(argNode.value, context)
                     }
                 }
             }
             context.mv.invokeStatic(context.getOwner(referentFqn), targetDecl)
         }
-        is ValueConstructorInvocationNode -> {
+        is ValueConstructorInvocationNode<CodegenPrereqPhase> -> {
             val referentFqn = node.getReferentFqn()
             val targetType = Type.getType(referentFqn.toObjectDescriptor().text)
             val isSingleton = true// TODO Determine cardinality of constructor

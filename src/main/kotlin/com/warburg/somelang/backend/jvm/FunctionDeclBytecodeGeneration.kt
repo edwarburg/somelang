@@ -6,6 +6,7 @@ import com.warburg.somelang.common.withOpaqueFrame
 import com.warburg.somelang.id.UnresolvedName
 import com.warburg.somelang.middleend.FunctionType
 import com.warburg.somelang.middleend.getDeclarationFqn
+import com.warburg.somelang.middleend.withDeclFqn
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.objectweb.asm.commons.GeneratorAdapter
@@ -15,13 +16,13 @@ import java.io.PrintStream
 /**
  * @author ewarburg
  */
-internal fun generateMain(somelangMain: FunctionDeclarationNode, context: CompilationContext) {
-    val mainDecl = functionDeclaration {
-        nameNode = id(fqn("main"))
-        parameters = emptyList()
-        returnType = TypeNameNode(id("void"))
-        body = NoOpNode
-    }.withDeclFqn(context.currentFileNode.getDeclarationFqn() + "main")
+internal fun generateMain(somelangMain: FunctionDeclarationNode<CodegenPrereqPhase>, context: CodegenContext) {
+    val mainDecl = FunctionDeclarationNode<CodegenPrereqPhase>(
+        nameNode = id(fqn("main")),
+        parameters = emptyList(),
+        returnType = TypeNameNode(id("void")),
+        body = NoOpNode()
+    ).withDeclFqn(context.currentFileNode.getDeclarationFqn() + "main")
     context.withCurrentFuncDeclNode(mainDecl) {
         generateFuncDecl(context) {
             /*
@@ -55,7 +56,7 @@ internal fun generateMain(somelangMain: FunctionDeclarationNode, context: Compil
     }
 }
 
-internal fun generateFuncDecl(context: CompilationContext, bodyBuilder: () -> Unit) {
+internal fun generateFuncDecl(context: CodegenContext, bodyBuilder: () -> Unit) {
     val cw = context.cw
     val decl = context.currentFuncDeclNode
     val methodFqn = decl.getDeclarationFqn()

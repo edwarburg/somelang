@@ -1,5 +1,8 @@
 package com.warburg.somelang.middleend
 
+import com.warburg.somelang.ast.FileNode
+import com.warburg.somelang.common.NameResolvingPhase
+import com.warburg.somelang.common.ParsingPhase
 import com.warburg.somelang.id.FullyQualifiedName
 import com.warburg.somelang.id.Name
 
@@ -28,3 +31,5 @@ class MapIdResolver(input: Map<Name, FullyQualifiedName> = emptyMap()) : IdResol
         this.map.remove(name)
     }
 }
+
+fun resolveNames(node: FileNode<out ParsingPhase>): FileNode<NameResolvingPhase> = node as FileNode<NameResolvingPhase>

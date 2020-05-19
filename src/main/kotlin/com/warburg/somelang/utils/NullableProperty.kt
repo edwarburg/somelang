@@ -1,4 +1,4 @@
-package com.warburg.somelang.common
+package com.warburg.somelang.utils
 
 import kotlin.reflect.KProperty
 

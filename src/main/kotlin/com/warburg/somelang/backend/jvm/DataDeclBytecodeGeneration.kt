@@ -15,7 +15,7 @@ import kotlin.reflect.jvm.javaMethod
  */
 internal fun generateDataDecl(
     nodeFqnToClassWriter: Map<FullyQualifiedName, ClassWriter>,
-    context: CompilationContext
+    context: CodegenContext
 ) {
     val outerCw = context.cw
     val dd = context.currentDataDeclNode
@@ -69,14 +69,14 @@ internal fun generateDataDecl(
     outerCw.visitEnd()
 }
 
-private fun generateFields(valueConstDecl: ValueConstructorDeclarationNode, forType: Type, isSingleton: Boolean, context: CompilationContext) {
+private fun generateFields(valueConstDecl: ValueConstructorDeclarationNode<*>, forType: Type, isSingleton: Boolean, context: CodegenContext) {
     if (isSingleton) {
         val fv = context.cw.visitField(Opcodes.ACC_PUBLIC or Opcodes.ACC_FINAL or Opcodes.ACC_STATIC, SINGLETON_FIELD_NAME, forType.descriptor,null, null)
         fv.visitEnd()
     }
 }
 
-private fun generateConstructor(access: Int, superClassType: Type, superConstructorMethod: Method, parameters: List<Any>, context: CompilationContext) {
+private fun generateConstructor(access: Int, superClassType: Type, superConstructorMethod: Method, parameters: List<Any>, context: CodegenContext) {
     // TODO parameters in method
     val method = Method.getMethod("void <init>()")
     // TODO type parameters
@@ -90,7 +90,7 @@ private fun generateConstructor(access: Int, superClassType: Type, superConstruc
     mv.finish()
 }
 
-private fun generateClassInit(forType: Type, isSingleton: Boolean, context: CompilationContext) {
+private fun generateClassInit(forType: Type, isSingleton: Boolean, context: CodegenContext) {
     if (isSingleton) {
         val mv = GeneratorAdapter(Opcodes.ACC_STATIC, Method.getMethod("void <clinit>()"), null, null, context.cw)
         context.withMethodVisitor(mv) {
@@ -105,16 +105,16 @@ private fun generateClassInit(forType: Type, isSingleton: Boolean, context: Comp
 }
 
 private fun generateStandardDataMethods(
-    valueConstDecl: ValueConstructorDeclarationNode,
+    valueConstDecl: ValueConstructorDeclarationNode<*>,
     internalName: String,
     simpleName: String,
-    context: CompilationContext
+    context: CodegenContext
 ) {
     generateToString(simpleName, valueConstDecl, context)
     // TODO generate hashCode/equals
 }
 
-private fun generateToString(simpleName: String, valueConstDecl: ValueConstructorDeclarationNode, context: CompilationContext) {
+private fun generateToString(simpleName: String, valueConstDecl: ValueConstructorDeclarationNode<*>, context: CodegenContext) {
     val mv = GeneratorAdapter(
         Opcodes.ACC_PUBLIC or Opcodes.ACC_FINAL,
         Method.getMethod(Object::toString.javaMethod!!),

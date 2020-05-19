@@ -1,5 +1,8 @@
 package com.warburg.somelang.middleend
 
+import com.warburg.somelang.ast.FileNode
+import com.warburg.somelang.common.NameResolvingPhase
+import com.warburg.somelang.common.TypecheckingPhase
 import com.warburg.somelang.id.FullyQualifiedName
 
 /**
@@ -14,3 +17,5 @@ class TypeContext {
         this.types[name] = type
     }
 }
+
+fun typeAnalysis(node: FileNode<NameResolvingPhase>): FileNode<TypecheckingPhase> = node as FileNode<TypecheckingPhase>
