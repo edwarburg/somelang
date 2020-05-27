@@ -24,56 +24,87 @@ sealed class Node<P : Phase> : Attributable {
     }
 }
 
+///////////
+// Types //
+///////////
+
 abstract class TypeExpressionNode<P : Phase> : Node<P>()
-
 class TypeConstructorInvocationNode<P : Phase>(val target: IdentifierNode<P>, val arguments: List<TypeExpressionNode<P>> = emptyList()) : TypeExpressionNode<P>()
-
 class TypeNameNode<P : Phase>(val nameNode: IdentifierNode<P>) : TypeExpressionNode<P>()
-
 class FunctionTypeExpressionNode<P : Phase>(val argumentTypes: List<TypeExpressionNode<P>> = emptyList(), val returnType: TypeExpressionNode<P>) : TypeExpressionNode<P>()
 
+////////////
+// Shared //
+////////////
+data class IdentifierNode<P : Phase>(val name: Name) : Node<P>()
+
+///////////////
+// Top Level //
+///////////////
 data class FileNode<P : Phase>(val nodes: List<Node<P>>) : Node<P>()
+
+///////////////////////////
+// Function Declarations //
+///////////////////////////
 
 data class FunctionDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val body: Node<P>, val parameters: List<ParameterDeclarationNode<P>> = emptyList(), val returnType: TypeExpressionNode<P>? = null) : Node<P>()
 sealed class ParameterDeclarationNode<P : Phase> : Node<P>()
 data class NormalParameterDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val type: TypeExpressionNode<P>? = null) : ParameterDeclarationNode<P>()
 
-data class BlockNode<P : Phase>(val statements: List<Node<P>> = emptyList()) : Node<P>()
+///////////////////////
+// Data Declarations //
+///////////////////////
 
+data class DataDeclarationNode<P : Phase>(val typeConstructorDeclaration: TypeConstructorDeclarationNode<P>, val valueConstructorDeclarations: List<ValueConstructorDeclarationNode<P>> = emptyList()) : Node<P>()
+data class TypeConstructorDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val parameters: List<IdentifierNode<P>> = emptyList()) : Node<P>()
+data class ValueConstructorDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val parameters: List<TypeExpressionNode<P>> = emptyList()) : Node<P>()
+data class ValueConstructorInvocationNode<P : Phase>(val target: IdentifierNode<P>) : Node<P>()
+
+/////////////////
+// Expressions //
+/////////////////
+
+data class BlockNode<P : Phase>(val statements: List<Node<P>> = emptyList()) : Node<P>()
 data class ReturnNode<P : Phase>(val value: Node<P>) : Node<P>()
 
+///////////////
+// Variables //
+///////////////
+
 data class LocalVarDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val rhs: Node<P>, val type: TypeExpressionNode<P>? = null) : Node<P>()
-
 data class ReadLocalVarNode<P : Phase>(val target: IdentifierNode<P>) : Node<P>()
+data class GetStaticValueNode<P : Phase>(val target: IdentifierNode<P>) : Node<P>()
+data class ReadFieldValueNode<P : Phase>(val receiver: Node<P>, val field: IdentifierNode<P>) : Node<P>()
 
-data class IdentifierNode<P : Phase>(val name: Name) : Node<P>()
+//////////////
+// Literals //
+//////////////
 
 data class IntLiteralNode<P : Phase>(val value: Int) : Node<P>()
-
 data class StringLiteralNode<P : Phase>(val value: String) : Node<P>()
+
+//////////////////////
+// N-ary Operations //
+//////////////////////
 
 data class BinaryOperationNode<P : Phase>(val operator: BinaryOperator, val lhs: Node<P>, val rhs: Node<P>) : Node<P>()
 
 enum class BinaryOperator {
-    ADD
+    ADD,
 }
 
+//////////////////////////
+// Function invocations //
+//////////////////////////
+
 data class InvokeNode<P : Phase>(val target: IdentifierNode<P>, val arguments: List<ArgumentNode<P>> = emptyList()) : Node<P>()
-
-data class GetStaticValueNode<P : Phase>(val target: IdentifierNode<P>) : Node<P>()
-
-data class ReadFieldValueNode<P : Phase>(val receiver: Node<P>, val field: IdentifierNode<P>) : Node<P>()
-
 sealed class ArgumentNode<P : Phase> : Node<P>()
 data class PositionalArgumentNode<P : Phase>(val value: Node<P>) : ArgumentNode<P>()
 
-data class DataDeclarationNode<P : Phase>(val typeConstructorDeclaration: TypeConstructorDeclarationNode<P>, val valueConstructorDeclarations: List<ValueConstructorDeclarationNode<P>> = emptyList()) : Node<P>()
 
-data class TypeConstructorDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val parameters: List<IdentifierNode<P>> = emptyList()) : Node<P>()
-
-data class ValueConstructorDeclarationNode<P : Phase>(val nameNode: IdentifierNode<P>, val parameters: List<TypeExpressionNode<P>> = emptyList()) : Node<P>()
-
-data class ValueConstructorInvocationNode<P : Phase>(val target: IdentifierNode<P>) : Node<P>()
+///////////
+// No op //
+///////////
 
 // NoOp is not an object because each noop might carry its own set of attributes
 class NoOpNode<P : Phase> : Node<P>()
