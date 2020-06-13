@@ -1,7 +1,7 @@
 
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import java.net.URI
+
 
 plugins {
     kotlin("jvm") version "1.3.71"
@@ -13,23 +13,26 @@ version ="0.1-SNAPSHOT"
 repositories {
     mavenCentral()
     maven { setUrl("https://dl.bintray.com/hotkeytlt/maven") }
-    maven { url = URI("https://dl.bintray.com/juanchosaravia/autodsl") }
 }
 
 dependencies {
     api("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     api("com.github.h0tk3y.betterParse:better-parse-jvm:0.4.0-alpha-3")
 
-    implementation("me.tomassetti:kllvm:0.1.0")
     val asmVersion = "8.0.1"
     implementation("org.ow2.asm:asm:$asmVersion")
     implementation("org.ow2.asm:asm-commons:$asmVersion")
     implementation("net.bytebuddy:byte-buddy:1.10.9")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.7")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.3.71")
+
+    implementation("com.michael-bull.kotlin-result:kotlin-result:1.1.6")
 
     val junitVersion = "5.3.1"
     testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
     testImplementation("io.mockk:mockk:1.9")
+    testImplementation( "org.jetbrains.kotlinx:kotlinx-coroutines-debug:1.3.7")
 }
 
 tasks.test {
