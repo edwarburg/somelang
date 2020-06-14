@@ -1,4 +1,4 @@
-package com.warburg.somelang.effects
+package com.warburg.kotlineffekts
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -30,7 +30,8 @@ class MustCallResumeOrFallthrough private constructor() {
     }
 }
 
-private class ChannelResumer<R>(private val down: Channel<MyResult<out R>>): Resumer<R> {
+private class ChannelResumer<R>(private val down: Channel<MyResult<out R>>):
+    Resumer<R> {
     override suspend fun resume(result: R): MustCallResumeOrFallthrough {
         this.down.send(Success(result))
         // unreachable, but they don't need to know that...
@@ -67,7 +68,11 @@ private object CurrentThreadExecutor : Executor {
 // The net effect should be that all this coroutines and channels stuff doesn't leave the current thread, and all nested
 // coroutines will always execute on the same thread.
 // TODO better way to handle this than ThreadLocal?
-private val threadlocalEffectsContext = ThreadLocal.withInitial { EffectsContext(CoroutineScope(CurrentThreadExecutor.asCoroutineDispatcher())) }
+private val threadlocalEffectsContext = ThreadLocal.withInitial {
+    EffectsContext(
+        CoroutineScope(CurrentThreadExecutor.asCoroutineDispatcher())
+    )
+}
 //private val threadlocalEffectsContext = ThreadLocal.withInitial { EffectsContext(CoroutineScope(EmptyCoroutineContext)) }
 internal fun getContext(): EffectsContext = threadlocalEffectsContext.get()
 
@@ -125,6 +130,7 @@ class EffectsContext(internal val scope: CoroutineScope) {
     internal fun <R> awaitResult(): R {
         try {
             return runBlocking(CoroutineName("EffectsContext await result")) {
+                @Suppress("UNCHECKED_CAST")
                 when (val result = results.peekFirst().receive()) {
                     is Success<*> -> result.value as R
                     is Failure -> throw result.cause
@@ -136,6 +142,7 @@ class EffectsContext(internal val scope: CoroutineScope) {
     }
 
     fun <A, R> perform(effect: Effect<A, R>, a: A): R {
+        @Suppress("UNCHECKED_CAST")
         val handler: EffectHandler<A, R>? = this.handlers.lookup(effect) as? EffectHandler<A, R>?
         if (handler == null) {
             throw UnsupportedOperationException("no handler registered for effect $effect")
@@ -148,6 +155,7 @@ class EffectsContext(internal val scope: CoroutineScope) {
                 result = down.receive()
             }
 
+            @Suppress("UNCHECKED_CAST")
             when (val r = result!!) {
                 is Success<*> -> return r.value as R
                 is Failure -> throw r.cause
@@ -220,4 +228,5 @@ fun <R> performing(block: EffectsContext.() -> R): R {
     return block.invoke(getContext())
 }
 
-fun <A, R> perform(effect: Effect<A, R>, a: A): R = performing { this.perform(effect, a) }
+fun <A, R> perform(effect: Effect<A, R>, a: A): R =
+    performing { this.perform(effect, a) }

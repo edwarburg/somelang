@@ -1,10 +1,5 @@
-package com.warburg.somelang
+package com.warburg.kotlineffekts
 
-import com.warburg.somelang.effects.Effect
-import com.warburg.somelang.effects.perform
-import com.warburg.somelang.effects.withEffects
-import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.debug.DebugProbes
 import kotlinx.coroutines.debug.DebugProbes.withDebugProbes
 import org.junit.jupiter.api.Assertions.*
@@ -15,51 +10,12 @@ import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 
-lateinit var theScope: CoroutineScope
 val defaultTimeout = Duration.ofSeconds(1)
 
 /**
  * @author ewarburg
  */
 class EffectsTest {
-    @Test
-    fun fancyEffectsManually() {
-        val up = Channel<Int>()
-        val down = Channel<Unit>()
-        val channels = Channels(up, down)
-        runBlocking {
-            theScope = this
-            doTheSendManually(channels)
-            println("waiting to receive from ${Thread.currentThread()}")
-            for (result in up) {
-                println("got result: $result")
-                if (result == 2) {
-                    break
-                }
-                down.send(Unit)
-            }
-            down.close()
-        }
-    }
-
-    private fun doTheSendManually(channels: Channels<Int, Unit>) {
-        theScope.launch {
-            for (i in 0..3) {
-                println("doing something $i")
-                println("sending something: $i")
-                channels.up.send(i)
-                val resumedWith = channels.down.receiveOrClosed()
-                if (resumedWith.isClosed) {
-//                    yield()
-                    cancel()
-                    yield()
-                }
-                println("resumed with: $resumedWith")
-            }
-            channels.up.close()
-        }
-    }
-
     @Test
     fun `effects returning simple result`() {
         withTimeout {
@@ -158,7 +114,7 @@ class EffectsTest {
     @Test
     fun `finally in run() body never runs when fallthrough is called`() {
         withTimeout {
-            val result = withEffects<Unit> {
+            withEffects<Unit> {
                 handler(NoOp) {
                     fallthrough(Unit)
                 }
@@ -176,7 +132,7 @@ class EffectsTest {
     @Test
     fun `user exceptions bubble up`() {
         withTimeout {
-            var caught = false
+            val caught: Boolean
             try {
                 withEffects<Unit> {
                     handler(NoOp) {
@@ -198,7 +154,7 @@ class EffectsTest {
     @Test
     fun `handler exceptions bubble up when uncaught by user`() {
         withTimeout {
-            var caught = false
+            val caught: Boolean
             try {
                 withEffects<Unit> {
                     handler(NoOp) {
@@ -220,7 +176,7 @@ class EffectsTest {
     @Test
     fun `exceptions thrown in handler cannot be caught by user code`() {
         withTimeout {
-            var caught = false
+            val caught: Boolean
             try {
                 withEffects<Unit> {
                     handler(NoOp) {
@@ -306,5 +262,3 @@ class HandlerException : RuntimeException()
 object NoOp : Effect<Unit, Unit>
 object Add1 : Effect<Int, Int>
 object GiveMeTheAnswer : Effect<Unit, Int>
-
-internal data class Channels<A, R>(val up: Channel<A>, val down: Channel<R>)
