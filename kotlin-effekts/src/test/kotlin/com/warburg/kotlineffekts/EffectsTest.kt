@@ -2,7 +2,9 @@ package com.warburg.kotlineffekts
 
 import kotlinx.coroutines.debug.DebugProbes
 import kotlinx.coroutines.debug.DebugProbes.withDebugProbes
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.fail
 import java.io.ByteArrayOutputStream
@@ -243,8 +245,43 @@ class EffectsTest {
     fun giveMeTheAnswer(): Int {
         return perform(GiveMeTheAnswer, Unit)
     }
+
+    object Get: Effect<Unit, Any> {}
+    object Put: Effect<Any, Unit> {}
+
+    @Test
+    fun `state test`() {
+        val actual = indexed(listOf("a", "b", "c"))
+        assertEquals(listOf(0 to "a", 1 to "b", 2 to "c"), actual)
+    }
+
+    private fun <S : Any, T> state(initial: S, comp: () -> T): T {
+        return withEffects {
+            var cell = initial
+            run {
+                comp()
+            }
+            handler(Get) {
+                resume(cell)
+            }
+            handler(Put) {
+                cell = it as S
+                resume(Unit)
+            }
+        }
+    }
+
+    private fun next(): Int {
+        val last = perform(Get, Unit) as Int
+        perform(Put, last + 1)
+        return last
+    }
+
+    fun <A> indexed(list: List<A>): List<Pair<Int, A>> {
+        return state(0) { list.map { next() to it } }
+    }
     
-    fun withTimeout(duration: Duration = defaultTimeout, block: () -> Unit) {
+    private fun withTimeout(duration: Duration = defaultTimeout, block: () -> Unit) {
         withDebugProbes {
             assertTimeoutPreemptively(duration, block) {
                 val baos = ByteArrayOutputStream()
