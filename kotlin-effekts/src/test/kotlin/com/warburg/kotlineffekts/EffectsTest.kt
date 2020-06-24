@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.time.Duration
+import java.util.*
 
 val defaultTimeout = Duration.ofSeconds(1)
 
@@ -34,9 +35,11 @@ class EffectsTest {
     fun `effects returning simple result with NoOp returning handler never invoked`() {
         withTimeout {
             val result = withEffects<Int> {
-                handler(NoOp) { resume(Unit) }
                 run {
                     42
+                }
+                handler(NoOp) {
+                    resume(Unit)
                 }
             }
             assertEquals(42, result)
@@ -47,10 +50,12 @@ class EffectsTest {
     fun `effects returning simple result with NoOp returning handler invoked once`() {
         withTimeout {
             val result = withEffects<Int> {
-                handler(NoOp) { resume(Unit) }
                 run {
                     perform(NoOp, Unit)
                     42
+                }
+                handler(NoOp) {
+                    resume(Unit)
                 }
             }
             assertEquals(42, result)
@@ -61,12 +66,12 @@ class EffectsTest {
     fun `effect which does not resume`() {
         withTimeout {
             val result = withEffects<Int> {
-                handler(NoOp) {
-                    fallthrough(1)
-                }
                 run {
                     perform(NoOp, Unit)
                     throw UnsupportedOperationException("unreachable")
+                }
+                handler(NoOp) {
+                    fallthrough(1)
                 }
             }
             assertEquals(1, result)
@@ -77,11 +82,11 @@ class EffectsTest {
     fun `effect which resumes with value`() {
         withTimeout {
             val result = withEffects<Int> {
-                handler(Add1) { n ->
-                    resume(n + 1)
-                }
                 run {
                     perform(Add1, 41)
+                }
+                handler(Add1) { n ->
+                    resume(n + 1)
                 }
             }
             assertEquals(42, result)
@@ -92,6 +97,13 @@ class EffectsTest {
         withTimeout {
             val list = mutableListOf<Int>()
             val result = withEffects<Int> {
+                run {
+                    var result = 0
+                    while (result < 42) {
+                        result = perform(Add1, result)
+                    }
+                    result
+                }
                 handler(Add1) { n ->
                     if (list.isEmpty()) {
                         list.add(n)
@@ -99,13 +111,6 @@ class EffectsTest {
                     val n1 = n + 1
                     list.add(n1)
                     resume(n1)
-                }
-                run {
-                    var result = 0
-                    while (result < 42) {
-                        result = perform(Add1, result)
-                    }
-                    result
                 }
             }
             assertEquals(42, result)
@@ -117,15 +122,15 @@ class EffectsTest {
     fun `finally in run() body never runs when fallthrough is called`() {
         withTimeout {
             withEffects<Unit> {
-                handler(NoOp) {
-                    fallthrough(Unit)
-                }
                 run {
                     try {
                         perform(NoOp, Unit)
                     } finally {
                         fail("ran finally")
                     }
+                }
+                handler(NoOp) {
+                    fallthrough(Unit)
                 }
             }
         }
@@ -241,6 +246,173 @@ class EffectsTest {
             assertEquals(42, result)
         }
     }
+
+    @Test
+    fun `simple state effect`() {
+        withTimeout {
+            val result = withEffects<Int> {
+                run {
+                    countTo10()
+                }
+
+                var theState = 0
+                handler(GetIntStateEffect) {
+                    resume(theState)
+                }
+                handler(PutIntStateEffect) { newState ->
+                    theState = newState
+                    resume(Unit)
+                }
+            }
+            assertEquals(10, result)
+        }
+    }
+
+    fun countTo10(): Int {
+        while (perform(GetIntStateEffect, Unit) < 10) {
+            perform(PutIntStateEffect, perform(GetIntStateEffect, Unit) + 1)
+        }
+
+        return perform(GetIntStateEffect, Unit)
+    }
+
+    object GetIntStateEffect : Effect<Unit, Int>
+    object PutIntStateEffect : Effect<Int, Unit>
+
+    @Test
+    fun `logging state effect`() {
+        withTimeout {
+            val states = ArrayDeque<Int>()
+            val result = withEffects<Int> {
+                run {
+                    countTo10()
+                }
+
+                states.push(0)
+                handler(GetIntStateEffect) {
+                    resume(states.peek())
+                }
+                handler(PutIntStateEffect) { newState ->
+                    states.push(newState)
+                    resume(Unit)
+                }
+            }
+            assertEquals(10, result)
+            assertEquals(listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10), states.toList().reversed())
+        }
+    }
+
+    @Test
+    fun `handle errors by resuming`() {
+        withTimeout {
+            val result = withEffects<Int> {
+                run {
+                    doSomethingThatFails()
+                }
+
+                handler(Error) { e ->
+                    println("some error occurred with $e, oh well")
+                    resume(e)
+                }
+            }
+
+            assertEquals(10, result)
+        }
+    }
+
+    object Error : Effect<Any, Any>
+
+    fun doSomethingThatFails(): Int {
+        var last = 0
+        for (i in 0..10) {
+            last = if (i > 7) {
+                perform(Error, i) as Int
+            } else {
+                i
+            }
+        }
+
+        return last
+    }
+
+    @Test
+    fun `handle errors by resuming with modified value`() {
+        withTimeout {
+            val result = withEffects<Int> {
+                run {
+                    doSomethingThatFails()
+                }
+
+                handler(Error) { e ->
+                    resume((e as Int) + 10)
+                }
+            }
+
+            assertEquals(20, result)
+        }
+    }
+
+    @Test
+    fun `handle errors by aborting`() {
+        withTimeout {
+            val result = withEffects<Int> {
+                run {
+                    doSomethingThatFails()
+                }
+
+                handler(Error) { e ->
+                    fallthrough(42)
+                }
+            }
+
+            assertEquals(42, result)
+        }
+    }
+
+    @Test
+    fun pipeline() {
+        withTimeout {
+            val input = listOf(1, 2, 3)
+            val output = mutableListOf<Int>()
+            pipe(
+                {
+                    for (i in input) {
+                        println("sending $i")
+                        perform(Send, i)
+                    }
+                },
+                {
+                    val i = perform(Receive, Unit) as Int
+                    println("receiving $i")
+                    output.add(i)
+                }
+            )
+            assertEquals(listOf(1, 2, 3), output)
+        }
+    }
+
+    fun pipe(sender: () -> Unit, receiver: () -> Unit) {
+        withEffects<Unit> {
+            run {
+                sender()
+            }
+
+            handler(Send) { message: Any ->
+                resume(withEffects {
+                    run {
+                        receiver()
+                    }
+
+                    handler(Receive) {
+                        resume(message)
+                    }
+                })
+            }
+        }
+    }
+
+    object Send : Effect<Any, Unit>
+    object Receive : Effect<Unit, Any>
 
     fun giveMeTheAnswer(): Int {
         return perform(GiveMeTheAnswer, Unit)
