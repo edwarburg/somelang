@@ -1,7 +1,12 @@
 package com.warburg.kotlineffekts
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Runnable
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.util.*
 import java.util.concurrent.Executor
 
@@ -137,7 +142,7 @@ class EffectsContext(internal val scope: CoroutineScope) {
                 }
             }
         } finally {
-            results.pollFirst()!!.close()
+            results.peekFirst()!!.close()
         }
     }
 
@@ -201,14 +206,14 @@ class EffectsScopeBuilder<Result> internal constructor() {
 
 
 @EffectsScopeDsl
-fun <R> withEffects(init: EffectsScopeBuilder<R>.() -> Unit): R {
+fun <R> withEffects(debugCxt: Any = "", init: EffectsScopeBuilder<R>.() -> Unit): R {
     val c = getContext()
     c.pushScope()
     try {
         val builder = EffectsScopeBuilder<R>()
         builder.init()
 
-        c.scope.launch(CoroutineName("withEffects run block")) {
+        c.scope.launch(CoroutineName("withEffects run block $debugCxt")) {
             try {
                 val result = builder.block.invoke(c)
                 c.sendResult(result)
